@@ -8,6 +8,8 @@ import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/auth/services/auth_api_service.dart';
 import 'features/chats/screens/home_shell_screen.dart';
+import 'features/users/providers/user_search_provider.dart';
+import 'features/users/services/user_api_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,6 +19,8 @@ void main() async {
   final apiClient = ApiClient(localStorage);
   final authApiService = AuthApiService(apiClient);
   final authProvider = AuthProvider(authApiService, localStorage);
+  final userApiService = UserApiService(apiClient);
+  final userSearchProvider = UserSearchProvider(userApiService);
 
   // Attempt auto-login with stored tokens
   await authProvider.tryAutoLogin();
@@ -25,6 +29,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
+        ChangeNotifierProvider<UserSearchProvider>.value(value: userSearchProvider),
       ],
       child: const MessengerApp(),
     ),

@@ -11,6 +11,7 @@ public interface IUserRepository
     Task<bool> IsUsernameTakenAsync(string username, CancellationToken ct = default);
     Task<bool> IsEmailTakenAsync(string email, CancellationToken ct = default);
     Task<UserSession?> GetSessionByRefreshTokenAsync(string refreshToken, CancellationToken ct = default);
+    Task<IReadOnlyList<User>> SearchUsersAsync(string query, Guid currentUserId, int limit = 20, CancellationToken ct = default);
     Task AddUserAsync(User user, CancellationToken ct = default);
     Task AddSessionAsync(UserSession session, CancellationToken ct = default);
     Task UpdateUserAsync(User user, CancellationToken ct = default);

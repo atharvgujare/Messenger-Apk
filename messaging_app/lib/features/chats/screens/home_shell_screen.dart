@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../users/screens/user_search_screen.dart';
 
 class HomeShellScreen extends StatefulWidget {
   const HomeShellScreen({super.key});
@@ -41,18 +42,279 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final auth = context.watch<AuthProvider>();
-    final user = auth.currentUser;
+  void _openSearch() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const UserSearchScreen()),
+    );
+  }
 
+  Widget _buildChatsTab(ThemeData theme, AuthProvider auth) {
+    final user = auth.currentUser;
     final displayName = user?.displayName ?? 'User';
     final username = user?.username ?? 'username';
     final email = user?.email ?? '';
     final initials = displayName.isNotEmpty
         ? displayName.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase()
         : 'U';
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // User Identity Card
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Row(
+                children: [
+                  Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 32,
+                        backgroundColor: theme.colorScheme.primary,
+                        child: Text(
+                          initials,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: AppTheme.accentColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: theme.cardTheme.color ?? theme.colorScheme.surface,
+                              width: 2.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          displayName,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withAlpha(20),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '@$username',
+                            style: TextStyle(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        if (email.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            email,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Server Status Banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppTheme.accentColor.withAlpha(15),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.accentColor.withAlpha(50)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.cloud_done_rounded, color: AppTheme.accentColor, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Connected to Backend Engine',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      Text(
+                        AppConfig.baseUrl,
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+                const Text(
+                  'Phase 2 Active',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppTheme.accentColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Search shortcut card
+          Card(
+            child: ListTile(
+              leading: Icon(Icons.person_search_rounded, color: theme.colorScheme.primary),
+              title: const Text('Discover & Find People', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text('Search by @username or display name'),
+              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+              onTap: _openSearch,
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Overview Section
+          Text(
+            'Recent Conversations',
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+
+          // Empty state with discover CTA
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.withAlpha(40)),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.mark_chat_unread_outlined,
+                  size: 52,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'No Conversations Yet',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Find contacts using their unique @username and prepare to chat in Phase 3!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                ),
+                const SizedBox(height: 18),
+                ElevatedButton.icon(
+                  onPressed: _openSearch,
+                  icon: const Icon(Icons.search_rounded, size: 18),
+                  label: const Text('Find People'),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(160, 42),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsTab(ThemeData theme, AuthProvider auth) {
+    final user = auth.currentUser;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundColor: theme.colorScheme.primary,
+                    child: Text(
+                      user?.displayName.isNotEmpty == true ? user!.displayName[0].toUpperCase() : 'U',
+                      style: const TextStyle(fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    user?.displayName ?? 'User',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    '@${user?.username ?? "username"}',
+                    style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.lock_outline_rounded),
+                  title: const Text('Privacy & Security'),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                  onTap: () {},
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.notifications_none_rounded),
+                  title: const Text('Notifications'),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                  onTap: () {},
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.logout_rounded, color: AppTheme.errorColor),
+                  title: const Text('Sign Out', style: TextStyle(color: AppTheme.errorColor)),
+                  onTap: _confirmLogout,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final auth = context.watch<AuthProvider>();
 
     return Scaffold(
       appBar: AppBar(
@@ -79,6 +341,11 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.search_rounded),
+            tooltip: 'Discover Users',
+            onPressed: _openSearch,
+          ),
+          IconButton(
             icon: const Icon(Icons.logout_rounded),
             tooltip: 'Sign Out',
             onPressed: _confirmLogout,
@@ -86,173 +353,13 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // User Identity Profile Card
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Row(
-                    children: [
-                      // Avatar with Online Badge
-                      Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 32,
-                            backgroundColor: theme.colorScheme.primary,
-                            child: Text(
-                              initials,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              width: 16,
-                              height: 16,
-                              decoration: BoxDecoration(
-                                color: AppTheme.accentColor,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: theme.cardTheme.color ?? theme.colorScheme.surface,
-                                  width: 2.5,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(width: 16),
-                      // Details
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              displayName,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primary.withAlpha(20),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                '@$username',
-                                style: TextStyle(
-                                  color: theme.colorScheme.primary,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                            if (email.isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                email,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Server Status Banner
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppTheme.accentColor.withAlpha(15),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.accentColor.withAlpha(50)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.cloud_done_rounded, color: AppTheme.accentColor, size: 20),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Connected to Backend Engine',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                          ),
-                          Text(
-                            AppConfig.baseUrl,
-                            style: const TextStyle(fontSize: 11, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Text(
-                      'Phase 1 Active',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppTheme.accentColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Overview Section
-              Text(
-                'Recent Conversations',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-
-              // Placeholder for Phase 2 & 3
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.withAlpha(40)),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.mark_chat_unread_outlined,
-                      size: 56,
-                      color: Colors.grey[400],
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'No Conversations Yet',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'In Phase 2, you will be able to search users by @username (e.g. @rahul) and start real-time messaging!',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        child: IndexedStack(
+          index: _currentIndex,
+          children: [
+            _buildChatsTab(theme, auth),
+            const UserSearchScreen(),
+            _buildSettingsTab(theme, auth),
+          ],
         ),
       ),
       bottomNavigationBar: NavigationBar(

@@ -10,8 +10,8 @@ This document outlines the phased engineering milestones for Messenger. Each pha
 |---|---|---|---|
 | **Phase 0** | **Environment & Solution Foundation** | Completed | Environment audit, solution skeleton, clean architecture, compilation & tests passing, foundational documentation |
 | **Phase 1** | **Authentication & Identity** | Completed | Registration, login, JWT + refresh tokens, password hashing, user entity, username validation, SQL Server migrations |
-| **Phase 2** | **User Discovery & Profiles** | Next | Case-insensitive @username & display name search, profile screen, user details |
-| **Phase 3** | **Basic Real-Time Chat** | Pending | Conversation creation, EF Core message store, SignalR ChatHub, Send/Receive messages, Chat UI |
+| **Phase 2** | **User Discovery & Profiles** | Completed | Case-insensitive @username & display name search, profile screen, user details, privacy filtering |
+| **Phase 3** | **Basic Real-Time Chat** | Next | Conversation creation, EF Core message store, SignalR ChatHub, Send/Receive messages, Chat UI |
 | **Phase 4** | **Message States & Presence** | Pending | Sent (✓), Delivered (✓✓), Read (✓✓), Real-time typing indicators, Online/Offline presence & last seen |
 | **Phase 5** | **Message Operations** | Pending | Quoted replies, message editing ("Edited"), delete for me / everyone, emoji reactions, pinned & saved messages |
 | **Phase 6** | **Media & File Sharing** | Pending | Storage abstraction, image picker & full-screen viewer, documents, voice audio recorder & player |
@@ -45,12 +45,12 @@ This document outlines the phased engineering milestones for Messenger. Each pha
 
 ---
 
-### Phase 2: User Discovery & Profiles
-- [ ] Users Controller with search API (`GET /api/users/search?q={query}`).
-- [ ] Case-insensitive username and display name database queries.
-- [ ] Flutter Search UI with debounced text input and user result tiles.
-- [ ] User Profile screen showing avatar, display name, bio, and "Start Conversation" CTA.
-- [ ] Verification: User A searches for User B by username and opens profile.
+### Phase 2: User Discovery & Profiles (COMPLETED)
+- [x] Users Controller with search API (`GET /api/users/search?q={query}`).
+- [x] Case-insensitive username and display name database queries.
+- [x] Flutter Search UI with debounced text input and user result tiles.
+- [x] User Profile screen showing avatar, display name, bio, and "Start Conversation" CTA.
+- [x] Verification: User A searches for User B by username and opens profile.
 
 ---
 

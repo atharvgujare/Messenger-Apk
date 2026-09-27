@@ -57,6 +57,20 @@ public class UserRepository : IUserRepository
         return await _context.Users.AnyAsync(u => u.Email.ToLower() == normalized, ct);
     }
 
+    public async Task<IReadOnlyList<User>> SearchUsersAsync(string query, Guid currentUserId, int limit = 20, CancellationToken ct = default)
+    {
+        var normalized = query.Trim().ToLowerInvariant();
+        return await _context.Users
+            .Include(u => u.Profile)
+            .Where(u => u.Id != currentUserId && u.IsActive && 
+                   (u.Username.ToLower().Contains(normalized) || 
+                   (u.Profile != null && u.Profile.DisplayName.ToLower().Contains(normalized))))
+            .OrderBy(u => u.Username.ToLower().StartsWith(normalized) ? 0 : 1)
+            .ThenBy(u => u.Username)
+            .Take(limit)
+            .ToListAsync(ct);
+    }
+
     public async Task<UserSession?> GetSessionByRefreshTokenAsync(string refreshToken, CancellationToken ct = default)
     {
         return await _context.UserSessions

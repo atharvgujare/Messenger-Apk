@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Messaging.Api/Messaging.Api.csproj" />
+    <Project Path="src/Messaging.Application/Messaging.Application.csproj" />
+    <Project Path="src/Messaging.Domain/Messaging.Domain.csproj" />
+    <Project Path="src/Messaging.Infrastructure/Messaging.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Messaging.Tests/Messaging.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,55 @@
+# .NET / Visual Studio
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+.vs/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+appsettings.Local.json
+*.db
+*.sqlite
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+.pub-cache/
+.pub/
+
+# Android
+**/android/.gradle/
+**/android/local.properties
+**/android/**/build/
+**/android/captures/
+**/android/gradle/wrapper/gradle-wrapper.jar
+*.keystore
+*.jks
+
+# iOS / macOS
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/Flutter/flutter_assets/
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
+.DS_Store
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*~
+
+# Uploads and temporary storage
+uploads/
+temp/
+scratch/

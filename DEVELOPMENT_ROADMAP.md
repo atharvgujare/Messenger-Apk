@@ -54,13 +54,13 @@ This document outlines the phased engineering milestones for Messenger. Each pha
 
 ---
 
-### Phase 3: Basic Real-Time Chat
-- [ ] `Conversation` and `Message` entities & EF Core mappings.
-- [ ] SignalR `ChatHub` with JWT authentication and connection handling.
-- [ ] `SendMessage` SignalR event & HTTP fallback.
-- [ ] Real-time `MessageReceived` broadcast to conversation participants.
-- [ ] Flutter Chat List screen and Chat Conversation screen.
-- [ ] Verification: User A sends a message; User B receives it in real-time over SignalR.
+### Phase 3: Basic Real-Time Chat (COMPLETED)
+- [x] `Conversation` and `Message` entities & EF Core mappings.
+- [x] SignalR `ChatHub` with JWT authentication and connection handling.
+- [x] `SendMessage` SignalR event & HTTP fallback.
+- [x] Real-time `MessageReceived` broadcast to conversation participants.
+- [x] Flutter Chat List screen and Chat Conversation screen.
+- [x] Verification: User A sends a message; User B receives it in real-time over SignalR.
 
 ---
 

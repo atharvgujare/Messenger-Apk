@@ -1,10 +1,10 @@
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../users/screens/user_search_screen.dart';
-import '../models/conversation_model.dart';
 import '../providers/chat_provider.dart';
 import 'chat_screen.dart';
 

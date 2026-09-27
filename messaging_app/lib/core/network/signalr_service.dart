@@ -21,6 +21,11 @@ class SignalRService {
   final _userPresenceChangedController = StreamController<Map<String, dynamic>>.broadcast();
   final _userTypingController = StreamController<Map<String, dynamic>>.broadcast();
 
+  // Phase 5 Rich Message Streams
+  final _messageEditedController = StreamController<Map<String, dynamic>>.broadcast();
+  final _messageDeletedController = StreamController<Map<String, dynamic>>.broadcast();
+  final _reactionUpdatedController = StreamController<Map<String, dynamic>>.broadcast();
+
   Stream<MessageModel> get onMessageReceived => _messageReceivedController.stream;
   Stream<MessageModel> get onMessageSent => _messageSentController.stream;
   Stream<ConversationModel> get onConversationUpdated => _conversationUpdatedController.stream;
@@ -30,6 +35,10 @@ class SignalRService {
   Stream<Map<String, dynamic>> get onMessagesRead => _messagesReadController.stream;
   Stream<Map<String, dynamic>> get onUserPresenceChanged => _userPresenceChangedController.stream;
   Stream<Map<String, dynamic>> get onUserTyping => _userTypingController.stream;
+
+  Stream<Map<String, dynamic>> get onMessageEdited => _messageEditedController.stream;
+  Stream<Map<String, dynamic>> get onMessageDeleted => _messageDeletedController.stream;
+  Stream<Map<String, dynamic>> get onReactionUpdated => _reactionUpdatedController.stream;
 
   bool get isConnected => _hubConnection?.state == HubConnectionState.Connected;
 
@@ -81,6 +90,9 @@ class SignalRService {
       _hubConnection!.on('MessagesRead', _onMessagesRead);
       _hubConnection!.on('UserPresenceChanged', _onUserPresenceChanged);
       _hubConnection!.on('UserTyping', _onUserTyping);
+      _hubConnection!.on('MessageEdited', _onMessageEdited);
+      _hubConnection!.on('MessageDeleted', _onMessageDeleted);
+      _hubConnection!.on('MessageReactionUpdated', _onMessageReactionUpdated);
 
       await _hubConnection!.start();
       debugPrint('[SignalR] Connected successfully to ${AppConfig.chatHubUrl}');
@@ -169,6 +181,42 @@ class SignalRService {
     }
   }
 
+  void _onMessageEdited(List<Object?>? args) {
+    if (args != null && args.length >= 4) {
+      _messageEditedController.add({
+        'messageId': args[0]?.toString() ?? '',
+        'conversationId': args[1]?.toString() ?? '',
+        'newContent': args[2]?.toString() ?? '',
+        'editedAtUtc': DateTime.tryParse(args[3]?.toString() ?? '') ?? DateTime.now(),
+      });
+    }
+  }
+
+  void _onMessageDeleted(List<Object?>? args) {
+    if (args != null && args.length >= 3) {
+      _messageDeletedController.add({
+        'messageId': args[0]?.toString() ?? '',
+        'conversationId': args[1]?.toString() ?? '',
+        'isDeletedForEveryone': args[2] == true,
+      });
+    }
+  }
+
+  void _onMessageReactionUpdated(List<Object?>? args) {
+    if (args != null && args.length >= 3) {
+      final rawList = args[2] as List<dynamic>?;
+      final parsedReactions = rawList != null
+          ? rawList.map((r) => MessageReactionModel.fromJson(Map<String, dynamic>.from(r as Map))).toList()
+          : <MessageReactionModel>[];
+
+      _reactionUpdatedController.add({
+        'messageId': args[0]?.toString() ?? '',
+        'conversationId': args[1]?.toString() ?? '',
+        'reactions': parsedReactions,
+      });
+    }
+  }
+
   Future<MessageModel?> sendMessage(Map<String, dynamic> request) async {
     if (!isConnected) {
       debugPrint('[SignalR] Not connected, attempting reconnection...');
@@ -183,6 +231,24 @@ class SignalRService {
       return MessageModel.fromJson(Map<String, dynamic>.from(result));
     }
     return null;
+  }
+
+  Future<void> editMessage(String messageId, String newContent) async {
+    if (isConnected) {
+      await _hubConnection!.invoke('EditMessage', args: [messageId, newContent]);
+    }
+  }
+
+  Future<void> deleteMessage(String messageId, String conversationId, bool forEveryone) async {
+    if (isConnected) {
+      await _hubConnection!.invoke('DeleteMessage', args: [messageId, conversationId, forEveryone]);
+    }
+  }
+
+  Future<void> toggleReaction(String messageId, String conversationId, String emoji) async {
+    if (isConnected) {
+      await _hubConnection!.invoke('ToggleReaction', args: [messageId, conversationId, emoji]);
+    }
   }
 
   Future<void> markMessageDelivered(String messageId, String conversationId) async {
@@ -245,5 +311,8 @@ class SignalRService {
     _messagesReadController.close();
     _userPresenceChangedController.close();
     _userTypingController.close();
+    _messageEditedController.close();
+    _messageDeletedController.close();
+    _reactionUpdatedController.close();
   }
 }

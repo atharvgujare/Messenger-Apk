@@ -16,6 +16,7 @@ public class MessageRepository : IMessageRepository
 
     public async Task<IReadOnlyList<Message>> GetMessagesAsync(
         Guid conversationId, 
+        Guid currentUserId,
         DateTime? beforeTimestamp, 
         int limit = 50, 
         CancellationToken ct = default)
@@ -24,7 +25,11 @@ public class MessageRepository : IMessageRepository
             .Include(m => m.Sender)
                 .ThenInclude(s => s.Profile)
             .Include(m => m.ReplyToMessage)
-            .Where(m => m.ConversationId == conversationId && !m.IsDeletedForEveryone);
+                .ThenInclude(r => r!.Sender)
+                    .ThenInclude(s => s.Profile)
+            .Include(m => m.Reactions)
+            .Where(m => m.ConversationId == conversationId && 
+                        !m.UserDeletions.Any(d => d.UserId == currentUserId));
 
         if (beforeTimestamp.HasValue)
         {
@@ -43,6 +48,9 @@ public class MessageRepository : IMessageRepository
             .Include(m => m.Sender)
                 .ThenInclude(s => s.Profile)
             .Include(m => m.ReplyToMessage)
+                .ThenInclude(r => r!.Sender)
+                    .ThenInclude(s => s.Profile)
+            .Include(m => m.Reactions)
             .FirstOrDefaultAsync(m => m.Id == messageId, ct);
     }
 
@@ -55,6 +63,41 @@ public class MessageRepository : IMessageRepository
     {
         _context.Messages.Update(message);
         return Task.CompletedTask;
+    }
+
+    public async Task<MessageReaction?> GetReactionAsync(Guid messageId, Guid userId, string emoji, CancellationToken ct = default)
+    {
+        return await _context.MessageReactions
+            .FirstOrDefaultAsync(r => r.MessageId == messageId && r.UserId == userId && r.Emoji == emoji, ct);
+    }
+
+    public async Task AddReactionAsync(MessageReaction reaction, CancellationToken ct = default)
+    {
+        await _context.MessageReactions.AddAsync(reaction, ct);
+    }
+
+    public Task RemoveReactionAsync(MessageReaction reaction, CancellationToken ct = default)
+    {
+        _context.MessageReactions.Remove(reaction);
+        return Task.CompletedTask;
+    }
+
+    public async Task<List<MessageReaction>> GetReactionsForMessageAsync(Guid messageId, CancellationToken ct = default)
+    {
+        return await _context.MessageReactions
+            .Where(r => r.MessageId == messageId)
+            .ToListAsync(ct);
+    }
+
+    public async Task AddUserDeletionAsync(MessageUserDeletion deletion, CancellationToken ct = default)
+    {
+        await _context.MessageUserDeletions.AddAsync(deletion, ct);
+    }
+
+    public async Task<bool> IsDeletedForUserAsync(Guid messageId, Guid userId, CancellationToken ct = default)
+    {
+        return await _context.MessageUserDeletions
+            .AnyAsync(d => d.MessageId == messageId && d.UserId == userId, ct);
     }
 
     public async Task MarkMessageAsDeliveredAsync(Guid messageId, CancellationToken ct = default)

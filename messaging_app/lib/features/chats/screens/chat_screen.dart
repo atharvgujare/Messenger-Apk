@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
@@ -20,9 +21,13 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _focusNode = FocusNode();
   bool _canSend = false;
   bool _isTyping = false;
   Timer? _typingThrottleTimer;
+  String? _lastObservedEditingId;
+
+  static const List<String> _quickEmojis = ['❤️', '👍', '😂', '😮', '😢', '🙏', '🔥'];
 
   @override
   void initState() {
@@ -45,7 +50,6 @@ class _ChatScreenState extends State<ChatScreen> {
       });
     }
 
-    // Typing Indicator management
     final chatProvider = context.read<ChatProvider>();
     if (hasText) {
       if (!_isTyping) {
@@ -69,7 +73,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent + 60,
+        _scrollController.position.maxScrollExtent + 80,
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOut,
       );
@@ -80,22 +84,169 @@ class _ChatScreenState extends State<ChatScreen> {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
 
+    final provider = context.read<ChatProvider>();
+
+    // Message editing mode
+    if (provider.editingMessage != null) {
+      final msgId = provider.editingMessage!.id;
+      _textController.clear();
+      setState(() => _canSend = false);
+      await provider.editMessage(msgId, text);
+      return;
+    }
+
     if (_isTyping) {
       _isTyping = false;
       _typingThrottleTimer?.cancel();
-      context.read<ChatProvider>().sendTyping(widget.conversation.conversationId, false);
+      provider.sendTyping(widget.conversation.conversationId, false);
     }
 
+    final replyId = provider.replyingToMessage?.id;
     _textController.clear();
     setState(() => _canSend = false);
 
-    final provider = context.read<ChatProvider>();
     await provider.sendMessage(
       conversationId: widget.conversation.conversationId,
       content: text,
+      replyToMessageId: replyId,
     );
 
     Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+  }
+
+  void _startEditing(MessageModel message) {
+    context.read<ChatProvider>().setEditing(message);
+    _textController.text = message.content;
+    _textController.selection = TextSelection.fromPosition(
+      TextPosition(offset: _textController.text.length),
+    );
+    _focusNode.requestFocus();
+  }
+
+  void _startReplying(MessageModel message) {
+    context.read<ChatProvider>().setReplyingTo(message);
+    _focusNode.requestFocus();
+  }
+
+  void _showMessageActionMenu(MessageModel message, bool isMe) {
+    if (message.isDeletedForEveryone) return;
+
+    final theme = Theme.of(context);
+    final provider = context.read<ChatProvider>();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.cardTheme.color ?? theme.colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (bottomSheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 1. Emoji Reaction Quick Bar
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: theme.scaffoldBackgroundColor,
+                    borderRadius: BorderRadius.circular(32),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: _quickEmojis.map((emoji) {
+                      final hasReacted = message.reactions.any((r) => r.emoji == emoji && r.hasReacted);
+                      return InkWell(
+                        onTap: () {
+                          Navigator.pop(bottomSheetContext);
+                          provider.toggleReaction(message.id, emoji);
+                        },
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: hasReacted
+                              ? BoxDecoration(
+                                  color: theme.colorScheme.primary.withAlpha(50),
+                                  shape: BoxShape.circle,
+                                )
+                              : null,
+                          child: Text(
+                            emoji,
+                            style: const TextStyle(fontSize: 24),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Divider(height: 1),
+
+                // 2. Reply Option
+                ListTile(
+                  leading: const Icon(Icons.reply_rounded),
+                  title: const Text('Reply'),
+                  onTap: () {
+                    Navigator.pop(bottomSheetContext);
+                    _startReplying(message);
+                  },
+                ),
+
+                // 3. Edit Option (Sender only, non-deleted)
+                if (isMe)
+                  ListTile(
+                    leading: const Icon(Icons.edit_rounded),
+                    title: const Text('Edit'),
+                    onTap: () {
+                      Navigator.pop(bottomSheetContext);
+                      _startEditing(message);
+                    },
+                  ),
+
+                // 4. Copy Text
+                ListTile(
+                  leading: const Icon(Icons.copy_rounded),
+                  title: const Text('Copy text'),
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: message.content));
+                    Navigator.pop(bottomSheetContext);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Message copied to clipboard'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                ),
+
+                // 5. Delete Options
+                ListTile(
+                  leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                  title: const Text('Delete for me', style: TextStyle(color: Colors.redAccent)),
+                  onTap: () {
+                    Navigator.pop(bottomSheetContext);
+                    provider.deleteMessage(message.id, forEveryone: false);
+                  },
+                ),
+
+                if (isMe)
+                  ListTile(
+                    leading: const Icon(Icons.delete_forever_rounded, color: Colors.red),
+                    title: const Text('Delete for everyone', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                    onTap: () {
+                      Navigator.pop(bottomSheetContext);
+                      provider.deleteMessage(message.id, forEveryone: true);
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -106,6 +257,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
     _textController.dispose();
     _scrollController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -113,7 +265,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final auth = context.watch<AuthProvider>();
-    final currentUserId = auth.currentUser?.id ?? '';
+    final currentUserId = auth.currentUser?.userId ?? '';
     final chatProvider = context.watch<ChatProvider>();
 
     // Live update of conversation state & presence
@@ -126,6 +278,18 @@ class _ChatScreenState extends State<ChatScreen> {
     final initials = liveConv.initials;
     final isOnline = other?.isOnline ?? false;
     final typingUser = chatProvider.getTypingUser(widget.conversation.conversationId);
+
+    // Keep editing message input in sync if changed from provider
+    if (chatProvider.editingMessage != null && chatProvider.editingMessage!.id != _lastObservedEditingId) {
+      _lastObservedEditingId = chatProvider.editingMessage!.id;
+      _textController.text = chatProvider.editingMessage!.content;
+      _textController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _textController.text.length),
+      );
+    } else if (chatProvider.editingMessage == null && _lastObservedEditingId != null) {
+      _lastObservedEditingId = null;
+      _textController.clear();
+    }
 
     return PopScope(
       onPopInvokedWithResult: (didPop, result) {
@@ -229,7 +393,6 @@ class _ChatScreenState extends State<ChatScreen> {
                       );
                     }
 
-                    // Schedule scroll to bottom when new messages arrive
                     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 
                     return ListView.builder(
@@ -239,13 +402,14 @@ class _ChatScreenState extends State<ChatScreen> {
                       itemBuilder: (context, index) {
                         final msg = messages[index];
                         final isMe = msg.senderId == currentUserId;
-                        return _buildMessageBubble(context, theme, msg, isMe);
+                        return _buildMessageBubble(context, theme, msg, isMe, provider);
                       },
                     );
                   },
                 ),
               ),
-              _buildMessageComposer(theme),
+              _buildReplyOrEditBanner(theme, chatProvider),
+              _buildMessageComposer(theme, chatProvider),
             ],
           ),
         ),
@@ -287,73 +451,313 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  Widget _buildReplyOrEditBanner(ThemeData theme, ChatProvider provider) {
+    if (provider.replyingToMessage != null) {
+      final replyMsg = provider.replyingToMessage!;
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        color: theme.cardTheme.color ?? theme.colorScheme.surface,
+        child: Row(
+          children: [
+            Container(
+              width: 4,
+              height: 38,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Replying to ${replyMsg.senderDisplayName}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    replyMsg.content,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close_rounded, size: 20),
+              onPressed: () => provider.cancelReply(),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (provider.editingMessage != null) {
+      final editMsg = provider.editingMessage!;
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        color: theme.cardTheme.color ?? theme.colorScheme.surface,
+        child: Row(
+          children: [
+            const Icon(Icons.edit_rounded, size: 18, color: AppTheme.primaryColor),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Edit Message',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    editMsg.content,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close_rounded, size: 20),
+              onPressed: () {
+                provider.cancelEdit();
+                _textController.clear();
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
   Widget _buildMessageBubble(
     BuildContext context,
     ThemeData theme,
     MessageModel message,
     bool isMe,
+    ChatProvider provider,
   ) {
     final timeStr = DateFormat('h:mm a').format(message.createdAtUtc);
+    final isDeleted = message.isDeletedForEveryone;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
+      child: Column(
+        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.75,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: isMe ? theme.colorScheme.primary : (theme.cardTheme.color ?? theme.colorScheme.surface),
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(16),
-                topRight: const Radius.circular(16),
-                bottomLeft: Radius.circular(isMe ? 16 : 4),
-                bottomRight: Radius.circular(isMe ? 4 : 16),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(10),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-              children: [
-                Text(
-                  message.content,
-                  style: TextStyle(
-                    color: isMe ? Colors.white : (theme.textTheme.bodyMedium?.color ?? Colors.black),
-                    fontSize: 15,
+          Row(
+            mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              GestureDetector(
+                onLongPress: () => _showMessageActionMenu(message, isMe),
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.78,
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isDeleted
+                        ? (isMe ? theme.colorScheme.primary.withAlpha(160) : Colors.grey.withAlpha(60))
+                        : (isMe ? theme.colorScheme.primary : (theme.cardTheme.color ?? theme.colorScheme.surface)),
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(16),
+                      topRight: const Radius.circular(16),
+                      bottomLeft: Radius.circular(isMe ? 16 : 4),
+                      bottomRight: Radius.circular(isMe ? 4 : 16),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(10),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                    children: [
+                      // Quoted Reply Preview
+                      if (message.replyToMessageId != null && !isDeleted)
+                        _buildQuotedReplyPreview(theme, message, isMe),
+
+                      // Message Content
+                      if (isDeleted)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.block_rounded,
+                              size: 14,
+                              color: isMe ? Colors.white70 : Colors.grey,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'This message was deleted',
+                              style: TextStyle(
+                                fontStyle: FontStyle.italic,
+                                color: isMe ? Colors.white70 : Colors.grey.shade600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        Text(
+                          message.content,
+                          style: TextStyle(
+                            color: isMe ? Colors.white : (theme.textTheme.bodyMedium?.color ?? Colors.black),
+                            fontSize: 15,
+                          ),
+                        ),
+                      const SizedBox(height: 4),
+
+                      // Timestamp, Edited Tag & Status Icon
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (message.isEdited && !isDeleted) ...[
+                            Text(
+                              '(edited) ',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontStyle: FontStyle.italic,
+                                color: isMe ? Colors.white60 : Colors.grey,
+                              ),
+                            ),
+                          ],
+                          Text(
+                            timeStr,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isMe ? Colors.white70 : Colors.grey,
+                            ),
+                          ),
+                          if (isMe && !isDeleted) ...[
+                            const SizedBox(width: 4),
+                            _buildStatusIcon(message.status),
+                          ],
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      timeStr,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isMe ? Colors.white70 : Colors.grey,
-                      ),
-                    ),
-                    if (isMe) ...[
-                      const SizedBox(width: 4),
-                      _buildStatusIcon(message.status),
-                    ],
-                  ],
-                ),
-              ],
+              ),
+            ],
+          ),
+
+          // Emoji Reactions Pill Bar
+          if (message.reactions.isNotEmpty && !isDeleted)
+            Padding(
+              padding: const EdgeInsets.only(top: 3.0),
+              child: _buildReactionChips(theme, message, provider),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuotedReplyPreview(ThemeData theme, MessageModel message, bool isMe) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: isMe ? Colors.black.withAlpha(35) : Colors.black.withAlpha(12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border(
+          left: BorderSide(
+            color: isMe ? Colors.white : theme.colorScheme.primary,
+            width: 3.5,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            message.replyToSenderDisplayName ?? message.replyToSenderUsername ?? 'Original Message',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: isMe ? Colors.white : theme.colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            message.replyToContent ?? '',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              color: isMe ? Colors.white70 : Colors.black87,
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildReactionChips(ThemeData theme, MessageModel message, ChatProvider provider) {
+    return Wrap(
+      spacing: 4,
+      children: message.reactions.map((r) {
+        return GestureDetector(
+          onTap: () => provider.toggleReaction(message.id, r.emoji),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(
+              color: r.hasReacted
+                  ? theme.colorScheme.primary.withAlpha(50)
+                  : (theme.cardTheme.color ?? theme.colorScheme.surface),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: r.hasReacted ? theme.colorScheme.primary : Colors.grey.withAlpha(50),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(8),
+                  blurRadius: 2,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(r.emoji, style: const TextStyle(fontSize: 13)),
+                const SizedBox(width: 3),
+                Text(
+                  '${r.count}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: r.hasReacted ? theme.colorScheme.primary : Colors.grey.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -372,7 +776,9 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Widget _buildMessageComposer(ThemeData theme) {
+  Widget _buildMessageComposer(ThemeData theme, ChatProvider provider) {
+    final isEditing = provider.editingMessage != null;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -389,11 +795,12 @@ class _ChatScreenState extends State<ChatScreen> {
           Expanded(
             child: TextField(
               controller: _textController,
+              focusNode: _focusNode,
               minLines: 1,
               maxLines: 4,
               textCapitalization: TextCapitalization.sentences,
               decoration: InputDecoration(
-                hintText: 'Type a message...',
+                hintText: isEditing ? 'Edit your message...' : 'Type a message...',
                 hintStyle: TextStyle(color: Colors.grey.shade500),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 filled: true,
@@ -413,10 +820,10 @@ class _ChatScreenState extends State<ChatScreen> {
             child: InkWell(
               customBorder: const CircleBorder(),
               onTap: _canSend ? _handleSendMessage : null,
-              child: const Padding(
-                padding: EdgeInsets.all(12.0),
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
                 child: Icon(
-                  Icons.send_rounded,
+                  isEditing ? Icons.check_rounded : Icons.send_rounded,
                   color: Colors.white,
                   size: 20,
                 ),

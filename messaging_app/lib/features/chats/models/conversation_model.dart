@@ -1,5 +1,5 @@
 import 'message_model.dart';
-import '../../users/models/user_search_result_model.dart';
+import '../../users/models/user_search_model.dart';
 
 enum ConversationType {
   direct,

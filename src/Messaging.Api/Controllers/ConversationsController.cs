@@ -140,6 +140,85 @@ public class ConversationsController : ControllerBase
         return Ok(new { messageId, conversationId = id });
     }
 
+    [HttpPut("{id:guid}/messages/{messageId:guid}")]
+    [ProducesResponseType(typeof(MessageDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> EditMessage(
+        [FromRoute] Guid id,
+        [FromRoute] Guid messageId,
+        [FromBody] EditMessageRequest request,
+        CancellationToken ct)
+    {
+        var currentUserId = GetCurrentUserId();
+        var edited = await _chatService.EditMessageAsync(messageId, currentUserId, request.Content, ct);
+
+        var participantIds = await _chatService.GetConversationParticipantUserIdsAsync(id, ct);
+        foreach (var participantId in participantIds)
+        {
+            await _hubContext.Clients.Group($"user_{participantId}").MessageEdited(
+                edited.Id, 
+                id, 
+                edited.Content ?? string.Empty, 
+                edited.UpdatedAtUtc ?? DateTime.UtcNow);
+        }
+
+        return Ok(edited);
+    }
+
+    [HttpDelete("{id:guid}/messages/{messageId:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteMessage(
+        [FromRoute] Guid id,
+        [FromRoute] Guid messageId,
+        [FromQuery] bool forEveryone = false,
+        CancellationToken ct = default)
+    {
+        var currentUserId = GetCurrentUserId();
+        var isForEveryone = await _chatService.DeleteMessageAsync(messageId, currentUserId, forEveryone, ct);
+
+        if (isForEveryone)
+        {
+            var participantIds = await _chatService.GetConversationParticipantUserIdsAsync(id, ct);
+            foreach (var participantId in participantIds)
+            {
+                await _hubContext.Clients.Group($"user_{participantId}").MessageDeleted(messageId, id, true);
+            }
+        }
+        else
+        {
+            await _hubContext.Clients.Group($"user_{currentUserId}").MessageDeleted(messageId, id, false);
+        }
+
+        return Ok(new { messageId, conversationId = id, isDeletedForEveryone = isForEveryone });
+    }
+
+    [HttpPost("{id:guid}/messages/{messageId:guid}/reactions")]
+    [ProducesResponseType(typeof(List<MessageReactionDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ToggleReaction(
+        [FromRoute] Guid id,
+        [FromRoute] Guid messageId,
+        [FromBody] ToggleReactionRequest request,
+        CancellationToken ct)
+    {
+        var currentUserId = GetCurrentUserId();
+        var reactions = await _chatService.ToggleReactionAsync(messageId, currentUserId, request.Emoji, ct);
+
+        var participantIds = await _chatService.GetConversationParticipantUserIdsAsync(id, ct);
+        foreach (var participantId in participantIds)
+        {
+            await _hubContext.Clients.Group($"user_{participantId}").MessageReactionUpdated(messageId, id, reactions);
+        }
+
+        return Ok(reactions);
+    }
+
     private Guid GetCurrentUserId()
     {
         var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

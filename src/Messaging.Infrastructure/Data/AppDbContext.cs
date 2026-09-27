@@ -15,6 +15,8 @@ public class AppDbContext : DbContext
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<ConversationMember> ConversationMembers => Set<ConversationMember>();
     public DbSet<Message> Messages => Set<Message>();
+    public DbSet<MessageReaction> MessageReactions => Set<MessageReaction>();
+    public DbSet<MessageUserDeletion> MessageUserDeletions => Set<MessageUserDeletion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -169,6 +171,45 @@ public class AppDbContext : DbContext
 
             entity.HasIndex(m => new { m.ConversationId, m.CreatedAtUtc });
             entity.HasIndex(m => m.SenderId);
+        });
+
+        // MessageReaction Configuration
+        modelBuilder.Entity<MessageReaction>(entity =>
+        {
+            entity.HasKey(r => r.Id);
+
+            entity.Property(r => r.Emoji)
+                .IsRequired()
+                .HasMaxLength(32);
+
+            entity.HasIndex(r => new { r.MessageId, r.UserId, r.Emoji })
+                .IsUnique();
+
+            entity.HasOne(r => r.Message)
+                .WithMany(m => m.Reactions)
+                .HasForeignKey(r => r.MessageId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(r => r.User)
+                .WithMany()
+                .HasForeignKey(r => r.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // MessageUserDeletion Configuration (Delete for Me)
+        modelBuilder.Entity<MessageUserDeletion>(entity =>
+        {
+            entity.HasKey(d => new { d.MessageId, d.UserId });
+
+            entity.HasOne(d => d.Message)
+                .WithMany(m => m.UserDeletions)
+                .HasForeignKey(d => d.MessageId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.User)
+                .WithMany()
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

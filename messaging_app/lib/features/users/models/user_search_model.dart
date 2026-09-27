@@ -39,4 +39,24 @@ class UserSearchResultModel {
     }
     return parts[0][0].toUpperCase();
   }
+
+  UserSearchResultModel copyWith({
+    String? userId,
+    String? username,
+    String? displayName,
+    String? avatarUrl,
+    String? bio,
+    bool? isOnline,
+    DateTime? lastSeenAtUtc,
+  }) {
+    return UserSearchResultModel(
+      userId: userId ?? this.userId,
+      username: username ?? this.username,
+      displayName: displayName ?? this.displayName,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      bio: bio ?? this.bio,
+      isOnline: isOnline ?? this.isOnline,
+      lastSeenAtUtc: lastSeenAtUtc ?? this.lastSeenAtUtc,
+    );
+  }
 }

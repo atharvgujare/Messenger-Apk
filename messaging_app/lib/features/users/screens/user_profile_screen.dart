@@ -49,6 +49,7 @@ class UserProfileScreen extends StatelessWidget {
           ),
         );
       }
+    }
   }
 
   @override

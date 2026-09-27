@@ -201,6 +201,91 @@ public class ChatHub : Hub<IChatHubClient>
         }
     }
 
+    public async Task<MessageDto> EditMessage(Guid messageId, string newContent)
+    {
+        var userId = GetUserId();
+        if (!userId.HasValue)
+        {
+            throw new HubException("Unauthorized: Invalid user identity.");
+        }
+
+        try
+        {
+            var edited = await _chatService.EditMessageAsync(messageId, userId.Value, newContent);
+            var participants = await _chatService.GetConversationParticipantUserIdsAsync(edited.ConversationId);
+            foreach (var participantId in participants)
+            {
+                await Clients.Group(GetUserGroup(participantId)).MessageEdited(
+                    edited.Id, 
+                    edited.ConversationId, 
+                    edited.Content ?? string.Empty, 
+                    edited.UpdatedAtUtc ?? DateTime.UtcNow);
+            }
+            return edited;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to edit message {MessageId}", messageId);
+            throw new HubException(ex.Message);
+        }
+    }
+
+    public async Task DeleteMessage(Guid messageId, Guid conversationId, bool forEveryone)
+    {
+        var userId = GetUserId();
+        if (!userId.HasValue)
+        {
+            throw new HubException("Unauthorized: Invalid user identity.");
+        }
+
+        try
+        {
+            var isForEveryone = await _chatService.DeleteMessageAsync(messageId, userId.Value, forEveryone);
+            if (isForEveryone)
+            {
+                var participants = await _chatService.GetConversationParticipantUserIdsAsync(conversationId);
+                foreach (var participantId in participants)
+                {
+                    await Clients.Group(GetUserGroup(participantId)).MessageDeleted(messageId, conversationId, true);
+                }
+            }
+            else
+            {
+                await Clients.Group(GetUserGroup(userId.Value)).MessageDeleted(messageId, conversationId, false);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete message {MessageId}", messageId);
+            throw new HubException(ex.Message);
+        }
+    }
+
+    public async Task<List<MessageReactionDto>> ToggleReaction(Guid messageId, Guid conversationId, string emoji)
+    {
+        var userId = GetUserId();
+        if (!userId.HasValue)
+        {
+            throw new HubException("Unauthorized: Invalid user identity.");
+        }
+
+        try
+        {
+            var reactions = await _chatService.ToggleReactionAsync(messageId, userId.Value, emoji);
+            var participants = await _chatService.GetConversationParticipantUserIdsAsync(conversationId);
+            foreach (var participantId in participants)
+            {
+                await Clients.Group(GetUserGroup(participantId)).MessageReactionUpdated(messageId, conversationId, reactions);
+            }
+            return reactions;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to toggle reaction on message {MessageId}", messageId);
+            throw new HubException(ex.Message);
+        }
+    }
+
     private Guid? GetUserId()
     {
         var idClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;

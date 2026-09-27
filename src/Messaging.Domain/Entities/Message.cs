@@ -20,4 +20,6 @@ public class Message
     public Conversation Conversation { get; set; } = null!;
     public User Sender { get; set; } = null!;
     public Message? ReplyToMessage { get; set; }
+    public ICollection<MessageReaction> Reactions { get; set; } = new List<MessageReaction>();
+    public ICollection<MessageUserDeletion> UserDeletions { get; set; } = new List<MessageUserDeletion>();
 }

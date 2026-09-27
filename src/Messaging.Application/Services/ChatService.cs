@@ -104,9 +104,9 @@ public class ChatService : IChatService
             throw new UnauthorizedException("You are not a member of this conversation.");
         }
 
-        var messages = await _messageRepository.GetMessagesAsync(conversationId, beforeTimestamp, limit, ct);
+        var messages = await _messageRepository.GetMessagesAsync(conversationId, currentUserId, beforeTimestamp, limit, ct);
 
-        return messages.Select(m => MapToMessageDto(m)).ToList();
+        return messages.Select(m => MapToMessageDto(m, currentUserId)).ToList();
     }
 
     public async Task<MessageDto> SendMessageAsync(
@@ -132,6 +132,12 @@ public class ChatService : IChatService
             throw new NotFoundException("Conversation not found.");
         }
 
+        Message? replyToMsg = null;
+        if (request.ReplyToMessageId.HasValue)
+        {
+            replyToMsg = await _messageRepository.GetByIdAsync(request.ReplyToMessageId.Value, ct);
+        }
+
         var message = new Message
         {
             Id = Guid.NewGuid(),
@@ -140,6 +146,7 @@ public class ChatService : IChatService
             Type = request.Type,
             Content = request.Content.Trim(),
             ReplyToMessageId = request.ReplyToMessageId,
+            ReplyToMessage = replyToMsg,
             CreatedAtUtc = DateTime.UtcNow,
             Status = MessageStatus.Sent,
             Sender = sender,
@@ -154,7 +161,7 @@ public class ChatService : IChatService
 
         await _messageRepository.SaveChangesAsync(ct);
 
-        var dto = MapToMessageDto(message);
+        var dto = MapToMessageDto(message, senderId);
         dto.ClientGeneratedId = request.ClientGeneratedId;
         return dto;
     }
@@ -276,8 +283,169 @@ public class ChatService : IChatService
         };
     }
 
-    private static MessageDto MapToMessageDto(Message m)
+    public async Task<MessageDto> EditMessageAsync(
+        Guid messageId, 
+        Guid userId, 
+        string newContent, 
+        CancellationToken ct = default)
     {
+        var message = await _messageRepository.GetByIdAsync(messageId, ct);
+        if (message == null)
+        {
+            throw new NotFoundException("Message not found.");
+        }
+
+        if (message.SenderId != userId)
+        {
+            throw new UnauthorizedException("You can only edit your own messages.");
+        }
+
+        if (message.IsDeletedForEveryone)
+        {
+            throw new ValidationException("Message", "Cannot edit a deleted message.");
+        }
+
+        message.Content = newContent.Trim();
+        message.IsEdited = true;
+        message.UpdatedAtUtc = DateTime.UtcNow;
+
+        await _messageRepository.UpdateMessageAsync(message, ct);
+        await _messageRepository.SaveChangesAsync(ct);
+
+        return MapToMessageDto(message, userId);
+    }
+
+    public async Task<bool> DeleteMessageAsync(
+        Guid messageId, 
+        Guid userId, 
+        bool forEveryone, 
+        CancellationToken ct = default)
+    {
+        var message = await _messageRepository.GetByIdAsync(messageId, ct);
+        if (message == null)
+        {
+            throw new NotFoundException("Message not found.");
+        }
+
+        var isMember = await _conversationRepository.IsMemberAsync(message.ConversationId, userId, ct);
+        if (!isMember)
+        {
+            throw new UnauthorizedException("You are not a member of this conversation.");
+        }
+
+        if (forEveryone)
+        {
+            if (message.SenderId != userId)
+            {
+                throw new UnauthorizedException("You can only delete your own messages for everyone.");
+            }
+
+            message.IsDeletedForEveryone = true;
+            message.Content = "This message was deleted";
+            message.UpdatedAtUtc = DateTime.UtcNow;
+
+            await _messageRepository.UpdateMessageAsync(message, ct);
+            await _messageRepository.SaveChangesAsync(ct);
+            return true;
+        }
+        else
+        {
+            var alreadyDeleted = await _messageRepository.IsDeletedForUserAsync(messageId, userId, ct);
+            if (!alreadyDeleted)
+            {
+                var deletion = new MessageUserDeletion
+                {
+                    MessageId = messageId,
+                    UserId = userId,
+                    DeletedAtUtc = DateTime.UtcNow
+                };
+                await _messageRepository.AddUserDeletionAsync(deletion, ct);
+                await _messageRepository.SaveChangesAsync(ct);
+            }
+            return false;
+        }
+    }
+
+    public async Task<List<MessageReactionDto>> ToggleReactionAsync(
+        Guid messageId, 
+        Guid userId, 
+        string emoji, 
+        CancellationToken ct = default)
+    {
+        var message = await _messageRepository.GetByIdAsync(messageId, ct);
+        if (message == null)
+        {
+            throw new NotFoundException("Message not found.");
+        }
+
+        var isMember = await _conversationRepository.IsMemberAsync(message.ConversationId, userId, ct);
+        if (!isMember)
+        {
+            throw new UnauthorizedException("You are not a member of this conversation.");
+        }
+
+        if (message.IsDeletedForEveryone)
+        {
+            throw new ValidationException("Message", "Cannot react to a deleted message.");
+        }
+
+        var existingReaction = await _messageRepository.GetReactionAsync(messageId, userId, emoji, ct);
+        if (existingReaction != null)
+        {
+            await _messageRepository.RemoveReactionAsync(existingReaction, ct);
+        }
+        else
+        {
+            var newReaction = new MessageReaction
+            {
+                Id = Guid.NewGuid(),
+                MessageId = messageId,
+                UserId = userId,
+                Emoji = emoji.Trim(),
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            await _messageRepository.AddReactionAsync(newReaction, ct);
+        }
+
+        await _messageRepository.SaveChangesAsync(ct);
+
+        var allReactions = await _messageRepository.GetReactionsForMessageAsync(messageId, ct);
+        return allReactions
+            .GroupBy(r => r.Emoji)
+            .Select(g => new MessageReactionDto
+            {
+                Emoji = g.Key,
+                Count = g.Count(),
+                UserIds = g.Select(r => r.UserId).ToList(),
+                HasReacted = g.Any(r => r.UserId == userId)
+            })
+            .ToList();
+    }
+
+    private static MessageDto MapToMessageDto(Message m, Guid? currentUserId = null)
+    {
+        string? replyToSenderUsername = null;
+        string? replyToSenderDisplayName = null;
+        string? replyToContent = null;
+
+        if (m.ReplyToMessage != null)
+        {
+            replyToSenderUsername = m.ReplyToMessage.Sender?.Username;
+            replyToSenderDisplayName = m.ReplyToMessage.Sender?.Profile?.DisplayName ?? m.ReplyToMessage.Sender?.Username;
+            replyToContent = m.ReplyToMessage.IsDeletedForEveryone ? "This message was deleted" : m.ReplyToMessage.Content;
+        }
+
+        var reactions = m.Reactions?
+            .GroupBy(r => r.Emoji)
+            .Select(g => new MessageReactionDto
+            {
+                Emoji = g.Key,
+                Count = g.Count(),
+                UserIds = g.Select(r => r.UserId).ToList(),
+                HasReacted = currentUserId.HasValue && g.Any(r => r.UserId == currentUserId.Value)
+            })
+            .ToList() ?? new List<MessageReactionDto>();
+
         return new MessageDto
         {
             Id = m.Id,
@@ -286,11 +454,17 @@ public class ChatService : IChatService
             SenderUsername = m.Sender?.Username ?? string.Empty,
             SenderDisplayName = m.Sender?.Profile?.DisplayName ?? m.Sender?.Username ?? string.Empty,
             Type = m.Type,
-            Content = m.Content,
+            Content = m.IsDeletedForEveryone ? "This message was deleted" : m.Content,
             CreatedAtUtc = m.CreatedAtUtc,
+            UpdatedAtUtc = m.UpdatedAtUtc,
             IsEdited = m.IsEdited,
+            IsDeletedForEveryone = m.IsDeletedForEveryone,
             Status = m.Status,
-            ReplyToMessageId = m.ReplyToMessageId
+            ReplyToMessageId = m.ReplyToMessageId,
+            ReplyToSenderUsername = replyToSenderUsername,
+            ReplyToSenderDisplayName = replyToSenderDisplayName,
+            ReplyToContent = replyToContent,
+            Reactions = reactions
         };
     }
 }

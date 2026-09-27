@@ -23,6 +23,10 @@ class ChatProvider extends ChangeNotifier {
   String? _activeConversationId;
   String? _error;
 
+  // Phase 5 State: Replying and Editing
+  MessageModel? _replyingToMessage;
+  MessageModel? _editingMessage;
+
   StreamSubscription? _msgReceivedSub;
   StreamSubscription? _msgSentSub;
   StreamSubscription? _convUpdatedSub;
@@ -30,12 +34,17 @@ class ChatProvider extends ChangeNotifier {
   StreamSubscription? _msgsReadSub;
   StreamSubscription? _presenceSub;
   StreamSubscription? _typingSub;
+  StreamSubscription? _msgEditedSub;
+  StreamSubscription? _msgDeletedSub;
+  StreamSubscription? _reactionSub;
 
   List<ConversationModel> get conversations => _conversations;
   bool get isLoadingConversations => _isLoadingConversations;
   bool get isLoadingMessages => _isLoadingMessages;
   String? get activeConversationId => _activeConversationId;
   String? get error => _error;
+  MessageModel? get replyingToMessage => _replyingToMessage;
+  MessageModel? get editingMessage => _editingMessage;
 
   List<MessageModel> getMessagesFor(String conversationId) =>
       _conversationMessages[conversationId] ?? [];
@@ -54,6 +63,31 @@ class ChatProvider extends ChangeNotifier {
     _msgsReadSub = _signalRService.onMessagesRead.listen(_handleMessagesRead);
     _presenceSub = _signalRService.onUserPresenceChanged.listen(_handleUserPresenceChanged);
     _typingSub = _signalRService.onUserTyping.listen(_handleUserTyping);
+    _msgEditedSub = _signalRService.onMessageEdited.listen(_handleMessageEdited);
+    _msgDeletedSub = _signalRService.onMessageDeleted.listen(_handleMessageDeleted);
+    _reactionSub = _signalRService.onReactionUpdated.listen(_handleReactionUpdated);
+  }
+
+  void setReplyingTo(MessageModel? message) {
+    _replyingToMessage = message;
+    _editingMessage = null; // Mutually exclusive with editing
+    notifyListeners();
+  }
+
+  void cancelReply() {
+    _replyingToMessage = null;
+    notifyListeners();
+  }
+
+  void setEditing(MessageModel? message) {
+    _editingMessage = message;
+    _replyingToMessage = null; // Mutually exclusive with replying
+    notifyListeners();
+  }
+
+  void cancelEdit() {
+    _editingMessage = null;
+    notifyListeners();
   }
 
   Future<void> connectRealTime() async {
@@ -106,6 +140,8 @@ class ChatProvider extends ChangeNotifier {
 
   Future<void> enterConversation(String conversationId) async {
     _activeConversationId = conversationId;
+    _replyingToMessage = null;
+    _editingMessage = null;
     await _signalRService.joinConversation(conversationId);
     await loadMessages(conversationId);
     await markConversationAsRead(conversationId);
@@ -115,6 +151,8 @@ class ChatProvider extends ChangeNotifier {
     if (_activeConversationId != null) {
       await _signalRService.leaveConversation(_activeConversationId!);
       _activeConversationId = null;
+      _replyingToMessage = null;
+      _editingMessage = null;
     }
   }
 
@@ -155,7 +193,7 @@ class ChatProvider extends ChangeNotifier {
     final optimisticMessage = MessageModel(
       id: clientGeneratedId,
       conversationId: conversationId,
-      senderId: currentUser?.id ?? '',
+      senderId: currentUser?.userId ?? '',
       senderUsername: currentUser?.username ?? '',
       senderDisplayName: currentUser?.displayName ?? currentUser?.username ?? 'You',
       type: MessageType.text,
@@ -163,8 +201,14 @@ class ChatProvider extends ChangeNotifier {
       createdAtUtc: DateTime.now(),
       status: MessageStatus.pending,
       replyToMessageId: replyToMessageId,
+      replyToSenderUsername: _replyingToMessage?.senderUsername,
+      replyToSenderDisplayName: _replyingToMessage?.senderDisplayName,
+      replyToContent: _replyingToMessage?.content,
       clientGeneratedId: clientGeneratedId,
     );
+
+    // Clear replying state immediately
+    _replyingToMessage = null;
 
     // Add optimistically to UI
     if (!_conversationMessages.containsKey(conversationId)) {
@@ -207,7 +251,6 @@ class ChatProvider extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('[ChatProvider] Failed to send message: $e');
-      // Mark as failed
       final list = _conversationMessages[conversationId];
       if (list != null) {
         final idx = list.indexWhere((m) => m.clientGeneratedId == clientGeneratedId);
@@ -215,6 +258,78 @@ class ChatProvider extends ChangeNotifier {
           list[idx] = list[idx].copyWith(status: MessageStatus.failed);
           notifyListeners();
         }
+      }
+    }
+  }
+
+  Future<void> editMessage(String messageId, String newContent) async {
+    if (newContent.trim().isEmpty) return;
+    final convId = _activeConversationId;
+    _editingMessage = null;
+    notifyListeners();
+
+    try {
+      await _signalRService.editMessage(messageId, newContent.trim());
+    } catch (_) {
+      if (convId != null) {
+        try {
+          await _apiClient.put(
+            '/conversations/$convId/messages/$messageId',
+            body: {'content': newContent.trim()},
+          );
+        } catch (e) {
+          debugPrint('[ChatProvider] HTTP edit failed: $e');
+        }
+      }
+    }
+  }
+
+  Future<void> deleteMessage(String messageId, {required bool forEveryone}) async {
+    final convId = _activeConversationId;
+    if (convId == null) return;
+
+    // Optimistically update or hide locally
+    final list = _conversationMessages[convId];
+    if (list != null) {
+      final idx = list.indexWhere((m) => m.id == messageId);
+      if (idx != -1) {
+        if (forEveryone) {
+          list[idx] = list[idx].copyWith(
+            isDeletedForEveryone: true,
+            content: 'This message was deleted',
+          );
+        } else {
+          list.removeAt(idx);
+        }
+        notifyListeners();
+      }
+    }
+
+    try {
+      await _signalRService.deleteMessage(messageId, convId, forEveryone);
+    } catch (_) {
+      try {
+        await _apiClient.delete('/conversations/$convId/messages/$messageId?forEveryone=$forEveryone');
+      } catch (e) {
+        debugPrint('[ChatProvider] HTTP delete failed: $e');
+      }
+    }
+  }
+
+  Future<void> toggleReaction(String messageId, String emoji) async {
+    final convId = _activeConversationId;
+    if (convId == null) return;
+
+    try {
+      await _signalRService.toggleReaction(messageId, convId, emoji);
+    } catch (_) {
+      try {
+        await _apiClient.post(
+          '/conversations/$convId/messages/$messageId/reactions',
+          body: {'emoji': emoji},
+        );
+      } catch (e) {
+        debugPrint('[ChatProvider] HTTP reaction toggle failed: $e');
       }
     }
   }
@@ -262,7 +377,6 @@ class ChatProvider extends ChangeNotifier {
     final isCurrentActive = _activeConversationId == convId;
     _updateConversationLastMessage(convId, message, incrementUnread: !isCurrentActive);
 
-    // Auto mark delivered and read if we are actively in this conversation
     markMessageDelivered(message.id, convId);
     if (isCurrentActive) {
       markConversationAsRead(convId);
@@ -313,9 +427,8 @@ class ChatProvider extends ChangeNotifier {
     final readAtUtc = data['readAtUtc'] as DateTime?;
     if (convId == null) return;
 
-    final currentUserId = _authProvider.currentUser?.id;
+    final currentUserId = _authProvider.currentUser?.userId;
 
-    // If current user read it, clear unread count
     if (readByUserId == currentUserId) {
       final idx = _conversations.indexWhere((c) => c.conversationId == convId);
       if (idx != -1) {
@@ -323,7 +436,6 @@ class ChatProvider extends ChangeNotifier {
       }
     }
 
-    // Mark messages sent before readAtUtc as Read
     final list = _conversationMessages[convId];
     if (list != null && readAtUtc != null) {
       bool updated = false;
@@ -338,6 +450,70 @@ class ChatProvider extends ChangeNotifier {
         if (list.isNotEmpty) {
           _updateConversationLastMessage(convId, list.last);
         }
+        notifyListeners();
+      }
+    }
+  }
+
+  void _handleMessageEdited(Map<String, dynamic> data) {
+    final messageId = data['messageId'] as String?;
+    final convId = data['conversationId'] as String?;
+    final newContent = data['newContent'] as String?;
+    final editedAtUtc = data['editedAtUtc'] as DateTime?;
+    if (convId == null || messageId == null) return;
+
+    final list = _conversationMessages[convId];
+    if (list != null) {
+      final idx = list.indexWhere((m) => m.id == messageId);
+      if (idx != -1) {
+        list[idx] = list[idx].copyWith(
+          content: newContent ?? list[idx].content,
+          isEdited: true,
+          updatedAtUtc: editedAtUtc,
+        );
+        _updateConversationLastMessage(convId, list[idx]);
+        notifyListeners();
+      }
+    }
+  }
+
+  void _handleMessageDeleted(Map<String, dynamic> data) {
+    final messageId = data['messageId'] as String?;
+    final convId = data['conversationId'] as String?;
+    final isDeletedForEveryone = data['isDeletedForEveryone'] == true;
+    if (convId == null || messageId == null) return;
+
+    final list = _conversationMessages[convId];
+    if (list != null) {
+      final idx = list.indexWhere((m) => m.id == messageId);
+      if (idx != -1) {
+        if (isDeletedForEveryone) {
+          list[idx] = list[idx].copyWith(
+            isDeletedForEveryone: true,
+            content: 'This message was deleted',
+          );
+        } else {
+          list.removeAt(idx);
+        }
+        if (list.isNotEmpty) {
+          _updateConversationLastMessage(convId, list.last);
+        }
+        notifyListeners();
+      }
+    }
+  }
+
+  void _handleReactionUpdated(Map<String, dynamic> data) {
+    final messageId = data['messageId'] as String?;
+    final convId = data['conversationId'] as String?;
+    final reactions = data['reactions'] as List<MessageReactionModel>?;
+    if (convId == null || messageId == null || reactions == null) return;
+
+    final list = _conversationMessages[convId];
+    if (list != null) {
+      final idx = list.indexWhere((m) => m.id == messageId);
+      if (idx != -1) {
+        list[idx] = list[idx].copyWith(reactions: reactions);
         notifyListeners();
       }
     }
@@ -422,6 +598,9 @@ class ChatProvider extends ChangeNotifier {
     _msgsReadSub?.cancel();
     _presenceSub?.cancel();
     _typingSub?.cancel();
+    _msgEditedSub?.cancel();
+    _msgDeletedSub?.cancel();
+    _reactionSub?.cancel();
     for (var t in _typingTimers.values) {
       t?.cancel();
     }

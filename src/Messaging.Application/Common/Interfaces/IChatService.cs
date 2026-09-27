@@ -38,4 +38,22 @@ public interface IChatService
         Guid conversationId, 
         Guid readerUserId, 
         CancellationToken ct = default);
+
+    Task<MessageDto> EditMessageAsync(
+        Guid messageId, 
+        Guid userId, 
+        string newContent, 
+        CancellationToken ct = default);
+
+    Task<bool> DeleteMessageAsync(
+        Guid messageId, 
+        Guid userId, 
+        bool forEveryone, 
+        CancellationToken ct = default);
+
+    Task<List<MessageReactionDto>> ToggleReactionAsync(
+        Guid messageId, 
+        Guid userId, 
+        string emoji, 
+        CancellationToken ct = default);
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -20,6 +21,8 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _canSend = false;
+  bool _isTyping = false;
+  Timer? _typingThrottleTimer;
 
   @override
   void initState() {
@@ -33,11 +36,33 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _onTextChanged() {
-    final hasText = _textController.text.trim().isNotEmpty;
+    final text = _textController.text.trim();
+    final hasText = text.isNotEmpty;
+
     if (hasText != _canSend) {
       setState(() {
         _canSend = hasText;
       });
+    }
+
+    // Typing Indicator management
+    final chatProvider = context.read<ChatProvider>();
+    if (hasText) {
+      if (!_isTyping) {
+        _isTyping = true;
+        chatProvider.sendTyping(widget.conversation.conversationId, true);
+      }
+      _typingThrottleTimer?.cancel();
+      _typingThrottleTimer = Timer(const Duration(milliseconds: 2500), () {
+        if (mounted) {
+          _isTyping = false;
+          chatProvider.sendTyping(widget.conversation.conversationId, false);
+        }
+      });
+    } else if (_isTyping) {
+      _isTyping = false;
+      _typingThrottleTimer?.cancel();
+      chatProvider.sendTyping(widget.conversation.conversationId, false);
     }
   }
 
@@ -55,6 +80,12 @@ class _ChatScreenState extends State<ChatScreen> {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
 
+    if (_isTyping) {
+      _isTyping = false;
+      _typingThrottleTimer?.cancel();
+      context.read<ChatProvider>().sendTyping(widget.conversation.conversationId, false);
+    }
+
     _textController.clear();
     setState(() => _canSend = false);
 
@@ -69,6 +100,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    _typingThrottleTimer?.cancel();
+    if (_isTyping && mounted) {
+      context.read<ChatProvider>().sendTyping(widget.conversation.conversationId, false);
+    }
     _textController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -79,10 +114,18 @@ class _ChatScreenState extends State<ChatScreen> {
     final theme = Theme.of(context);
     final auth = context.watch<AuthProvider>();
     final currentUserId = auth.currentUser?.id ?? '';
-    final other = widget.conversation.otherParticipant;
-    final title = widget.conversation.title;
-    final initials = widget.conversation.initials;
+    final chatProvider = context.watch<ChatProvider>();
+
+    // Live update of conversation state & presence
+    final liveConv = chatProvider.conversations.firstWhere(
+      (c) => c.conversationId == widget.conversation.conversationId,
+      orElse: () => widget.conversation,
+    );
+    final other = liveConv.otherParticipant;
+    final title = liveConv.title;
+    final initials = liveConv.initials;
     final isOnline = other?.isOnline ?? false;
+    final typingUser = chatProvider.getTypingUser(widget.conversation.conversationId);
 
     return PopScope(
       onPopInvokedWithResult: (didPop, result) {
@@ -138,15 +181,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       overflow: TextOverflow.ellipsis,
                     ),
-                    Text(
-                      other != null
-                          ? (isOnline ? 'online' : '@${other.username}')
-                          : 'Conversation',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isOnline ? AppTheme.accentColor : Colors.grey,
-                      ),
-                    ),
+                    _buildSubtitle(typingUser, isOnline, other?.username),
                   ],
                 ),
               ),
@@ -158,10 +193,10 @@ class _ChatScreenState extends State<ChatScreen> {
             children: [
               Expanded(
                 child: Consumer<ChatProvider>(
-                  builder: (context, chatProvider, _) {
-                    final messages = chatProvider.getMessagesFor(widget.conversation.conversationId);
+                  builder: (context, provider, _) {
+                    final messages = provider.getMessagesFor(widget.conversation.conversationId);
 
-                    if (chatProvider.isLoadingMessages && messages.isEmpty) {
+                    if (provider.isLoadingMessages && messages.isEmpty) {
                       return const Center(child: CircularProgressIndicator());
                     }
 
@@ -215,6 +250,40 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSubtitle(String? typingUser, bool isOnline, String? username) {
+    if (typingUser != null) {
+      return const Row(
+        children: [
+          Text(
+            'typing...',
+            style: TextStyle(
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+              color: AppTheme.accentColor,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (isOnline) {
+      return const Text(
+        'online',
+        style: TextStyle(
+          fontSize: 12,
+          color: AppTheme.accentColor,
+          fontWeight: FontWeight.w600,
+        ),
+      );
+    }
+
+    return Text(
+      username != null ? '@$username' : 'offline',
+      style: const TextStyle(fontSize: 12, color: Colors.grey),
     );
   }
 
@@ -297,7 +366,7 @@ class _ChatScreenState extends State<ChatScreen> {
       case MessageStatus.delivered:
         return const Icon(Icons.done_all_rounded, size: 14, color: Colors.white70);
       case MessageStatus.read:
-        return const Icon(Icons.done_all_rounded, size: 14, color: AppTheme.accentColor);
+        return const Icon(Icons.done_all_rounded, size: 14, color: Color(0xFF64FFDA));
       case MessageStatus.failed:
         return const Icon(Icons.error_outline_rounded, size: 14, color: Colors.amberAccent);
     }

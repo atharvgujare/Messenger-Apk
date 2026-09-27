@@ -13,6 +13,8 @@ public interface IMessageRepository
     Task<Message?> GetByIdAsync(Guid messageId, CancellationToken ct = default);
     Task AddMessageAsync(Message message, CancellationToken ct = default);
     Task UpdateMessageAsync(Message message, CancellationToken ct = default);
+    Task MarkMessageAsDeliveredAsync(Guid messageId, CancellationToken ct = default);
+    Task MarkMessagesAsReadAsync(Guid conversationId, Guid readerUserId, DateTime readAtUtc, CancellationToken ct = default);
     Task<int> GetUnreadCountAsync(Guid conversationId, Guid userId, Guid? lastReadMessageId, CancellationToken ct = default);
     Task SaveChangesAsync(CancellationToken ct = default);
 }

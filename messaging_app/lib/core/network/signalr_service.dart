@@ -15,10 +15,21 @@ class SignalRService {
   final _conversationUpdatedController = StreamController<ConversationModel>.broadcast();
   final _connectionStateController = StreamController<HubConnectionState>.broadcast();
 
+  // Phase 4 Delivery, Read, Presence & Typing Streams
+  final _messageDeliveredController = StreamController<Map<String, dynamic>>.broadcast();
+  final _messagesReadController = StreamController<Map<String, dynamic>>.broadcast();
+  final _userPresenceChangedController = StreamController<Map<String, dynamic>>.broadcast();
+  final _userTypingController = StreamController<Map<String, dynamic>>.broadcast();
+
   Stream<MessageModel> get onMessageReceived => _messageReceivedController.stream;
   Stream<MessageModel> get onMessageSent => _messageSentController.stream;
   Stream<ConversationModel> get onConversationUpdated => _conversationUpdatedController.stream;
   Stream<HubConnectionState> get onConnectionStateChanged => _connectionStateController.stream;
+
+  Stream<Map<String, dynamic>> get onMessageDelivered => _messageDeliveredController.stream;
+  Stream<Map<String, dynamic>> get onMessagesRead => _messagesReadController.stream;
+  Stream<Map<String, dynamic>> get onUserPresenceChanged => _userPresenceChangedController.stream;
+  Stream<Map<String, dynamic>> get onUserTyping => _userTypingController.stream;
 
   bool get isConnected => _hubConnection?.state == HubConnectionState.Connected;
 
@@ -66,6 +77,10 @@ class SignalRService {
       _hubConnection!.on('MessageReceived', _onMessageReceived);
       _hubConnection!.on('MessageSent', _onMessageSent);
       _hubConnection!.on('ConversationUpdated', _onConversationUpdated);
+      _hubConnection!.on('MessageDelivered', _onMessageDelivered);
+      _hubConnection!.on('MessagesRead', _onMessagesRead);
+      _hubConnection!.on('UserPresenceChanged', _onUserPresenceChanged);
+      _hubConnection!.on('UserTyping', _onUserTyping);
 
       await _hubConnection!.start();
       debugPrint('[SignalR] Connected successfully to ${AppConfig.chatHubUrl}');
@@ -112,6 +127,48 @@ class SignalRService {
     }
   }
 
+  void _onMessageDelivered(List<Object?>? args) {
+    if (args != null && args.length >= 2) {
+      _messageDeliveredController.add({
+        'messageId': args[0]?.toString() ?? '',
+        'conversationId': args[1]?.toString() ?? '',
+      });
+    }
+  }
+
+  void _onMessagesRead(List<Object?>? args) {
+    if (args != null && args.length >= 3) {
+      _messagesReadController.add({
+        'conversationId': args[0]?.toString() ?? '',
+        'readByUserId': args[1]?.toString() ?? '',
+        'readAtUtc': DateTime.tryParse(args[2]?.toString() ?? '') ?? DateTime.now(),
+      });
+    }
+  }
+
+  void _onUserPresenceChanged(List<Object?>? args) {
+    if (args != null && args.length >= 2) {
+      _userPresenceChangedController.add({
+        'userId': args[0]?.toString() ?? '',
+        'isOnline': args[1] == true,
+        'lastSeenAtUtc': args.length > 2 && args[2] != null
+            ? DateTime.tryParse(args[2]!.toString())
+            : null,
+      });
+    }
+  }
+
+  void _onUserTyping(List<Object?>? args) {
+    if (args != null && args.length >= 4) {
+      _userTypingController.add({
+        'conversationId': args[0]?.toString() ?? '',
+        'userId': args[1]?.toString() ?? '',
+        'username': args[2]?.toString() ?? '',
+        'isTyping': args[3] == true,
+      });
+    }
+  }
+
   Future<MessageModel?> sendMessage(Map<String, dynamic> request) async {
     if (!isConnected) {
       debugPrint('[SignalR] Not connected, attempting reconnection...');
@@ -126,6 +183,36 @@ class SignalRService {
       return MessageModel.fromJson(Map<String, dynamic>.from(result));
     }
     return null;
+  }
+
+  Future<void> markMessageDelivered(String messageId, String conversationId) async {
+    if (isConnected) {
+      try {
+        await _hubConnection!.invoke('MarkMessageDelivered', args: [messageId, conversationId]);
+      } catch (e) {
+        debugPrint('[SignalR] Error calling MarkMessageDelivered: $e');
+      }
+    }
+  }
+
+  Future<void> markConversationAsRead(String conversationId) async {
+    if (isConnected) {
+      try {
+        await _hubConnection!.invoke('MarkConversationAsRead', args: [conversationId]);
+      } catch (e) {
+        debugPrint('[SignalR] Error calling MarkConversationAsRead: $e');
+      }
+    }
+  }
+
+  Future<void> sendTypingIndicator(String conversationId, bool isTyping) async {
+    if (isConnected) {
+      try {
+        await _hubConnection!.invoke('SendTypingIndicator', args: [conversationId, isTyping]);
+      } catch (e) {
+        debugPrint('[SignalR] Error calling SendTypingIndicator: $e');
+      }
+    }
   }
 
   Future<void> joinConversation(String conversationId) async {
@@ -154,5 +241,9 @@ class SignalRService {
     _messageSentController.close();
     _conversationUpdatedController.close();
     _connectionStateController.close();
+    _messageDeliveredController.close();
+    _messagesReadController.close();
+    _userPresenceChangedController.close();
+    _userTypingController.close();
   }
 }

@@ -64,12 +64,12 @@ This document outlines the phased engineering milestones for Messenger. Each pha
 
 ---
 
-### Phase 4: Message Delivery States & Presence
-- [ ] Message status tracking: Sent (✓), Delivered (✓✓ grey), Read (✓✓ blue/colored).
-- [ ] SignalR connection tracking for online/offline presence without hammering SQL Server.
-- [ ] Transient typing indicator events (`TypingStarted` / `TypingStopped`).
-- [ ] Flutter animated status ticks, presence avatars, and typing subtitle ("Atharv is typing...").
-- [ ] Verification: Two users test delivery receipts and typing indicators live.
+### Phase 4: Message Delivery States & Presence (COMPLETED)
+- [x] Message status tracking: Sent (✓), Delivered (✓✓ grey), Read (✓✓ blue/colored).
+- [x] SignalR connection tracking for online/offline presence without hammering SQL Server.
+- [x] Transient typing indicator events (`TypingStarted` / `TypingStopped`).
+- [x] Flutter animated status ticks, presence avatars, and typing subtitle ("Atharv is typing...").
+- [x] Verification: Two users test delivery receipts and typing indicators live.
 
 ---
 

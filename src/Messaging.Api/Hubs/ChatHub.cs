@@ -11,11 +11,19 @@ namespace Messaging.Api.Hubs;
 public class ChatHub : Hub<IChatHubClient>
 {
     private readonly IChatService _chatService;
+    private readonly IPresenceTracker _presenceTracker;
+    private readonly IUserRepository _userRepository;
     private readonly ILogger<ChatHub> _logger;
 
-    public ChatHub(IChatService chatService, ILogger<ChatHub> logger)
+    public ChatHub(
+        IChatService chatService, 
+        IPresenceTracker presenceTracker,
+        IUserRepository userRepository,
+        ILogger<ChatHub> logger)
     {
         _chatService = chatService;
+        _presenceTracker = presenceTracker;
+        _userRepository = userRepository;
         _logger = logger;
     }
 
@@ -24,9 +32,27 @@ public class ChatHub : Hub<IChatHubClient>
         var userId = GetUserId();
         if (userId.HasValue)
         {
-            // Add connection to user-specific group so we can send targeted updates to all user devices
+            // 1. Add connection to user-specific group so we can send targeted updates to all user devices
             await Groups.AddToGroupAsync(Context.ConnectionId, GetUserGroup(userId.Value));
             _logger.LogInformation("User {UserId} connected to ChatHub on connection {ConnectionId}", userId, Context.ConnectionId);
+
+            // 2. Track presence
+            var isFirstConnection = await _presenceTracker.UserConnectedAsync(userId.Value, Context.ConnectionId);
+            if (isFirstConnection)
+            {
+                var user = await _userRepository.GetByIdAsync(userId.Value);
+                if (user?.Profile != null)
+                {
+                    user.Profile.IsOnline = true;
+                    user.Profile.LastSeenAtUtc = DateTime.UtcNow;
+                    await _userRepository.UpdateUserAsync(user);
+                    await _userRepository.SaveChangesAsync();
+                }
+
+                // Broadcast presence to all other connected clients
+                await Clients.Others.UserPresenceChanged(userId.Value, true, null);
+                _logger.LogInformation("User {UserId} transitioned to ONLINE", userId);
+            }
         }
 
         await base.OnConnectedAsync();
@@ -39,6 +65,25 @@ public class ChatHub : Hub<IChatHubClient>
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, GetUserGroup(userId.Value));
             _logger.LogInformation("User {UserId} disconnected from ChatHub", userId);
+
+            // Track presence
+            var isLastConnection = await _presenceTracker.UserDisconnectedAsync(userId.Value, Context.ConnectionId);
+            if (isLastConnection)
+            {
+                var lastSeen = DateTime.UtcNow;
+                var user = await _userRepository.GetByIdAsync(userId.Value);
+                if (user?.Profile != null)
+                {
+                    user.Profile.IsOnline = false;
+                    user.Profile.LastSeenAtUtc = lastSeen;
+                    await _userRepository.UpdateUserAsync(user);
+                    await _userRepository.SaveChangesAsync();
+                }
+
+                // Broadcast presence to all other connected clients
+                await Clients.Others.UserPresenceChanged(userId.Value, false, lastSeen);
+                _logger.LogInformation("User {UserId} transitioned to OFFLINE at {LastSeen}", userId, lastSeen);
+            }
         }
 
         await base.OnDisconnectedAsync(exception);
@@ -97,6 +142,62 @@ public class ChatHub : Hub<IChatHubClient>
         catch (AppException ex)
         {
             throw new HubException(ex.Message);
+        }
+    }
+
+    public async Task MarkMessageDelivered(Guid messageId, Guid conversationId)
+    {
+        var userId = GetUserId();
+        if (!userId.HasValue) return;
+
+        try
+        {
+            await _chatService.MarkMessageDeliveredAsync(messageId, userId.Value);
+            var participants = await _chatService.GetConversationParticipantUserIdsAsync(conversationId);
+            foreach (var participantId in participants)
+            {
+                await Clients.Group(GetUserGroup(participantId)).MessageDelivered(messageId, conversationId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to mark message {MessageId} as delivered", messageId);
+        }
+    }
+
+    public async Task MarkConversationAsRead(Guid conversationId)
+    {
+        var userId = GetUserId();
+        if (!userId.HasValue) return;
+
+        try
+        {
+            var readAt = await _chatService.MarkConversationReadAsync(conversationId, userId.Value);
+            var participants = await _chatService.GetConversationParticipantUserIdsAsync(conversationId);
+            foreach (var participantId in participants)
+            {
+                await Clients.Group(GetUserGroup(participantId)).MessagesRead(conversationId, userId.Value, readAt);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to mark conversation {ConversationId} as read", conversationId);
+        }
+    }
+
+    public async Task SendTypingIndicator(Guid conversationId, bool isTyping)
+    {
+        var userId = GetUserId();
+        if (!userId.HasValue) return;
+
+        var username = Context.User?.Identity?.Name ?? "User";
+        var participants = await _chatService.GetConversationParticipantUserIdsAsync(conversationId);
+        foreach (var participantId in participants)
+        {
+            if (participantId != userId.Value)
+            {
+                await Clients.Group(GetUserGroup(participantId)).UserTyping(conversationId, userId.Value, username, isTyping);
+            }
         }
     }
 

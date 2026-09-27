@@ -15,6 +15,9 @@ class ChatProvider extends ChangeNotifier {
 
   List<ConversationModel> _conversations = [];
   final Map<String, List<MessageModel>> _conversationMessages = {};
+  final Map<String, String?> _typingStatus = {};
+  final Map<String, Timer?> _typingTimers = {};
+
   bool _isLoadingConversations = false;
   bool _isLoadingMessages = false;
   String? _activeConversationId;
@@ -23,6 +26,10 @@ class ChatProvider extends ChangeNotifier {
   StreamSubscription? _msgReceivedSub;
   StreamSubscription? _msgSentSub;
   StreamSubscription? _convUpdatedSub;
+  StreamSubscription? _msgDeliveredSub;
+  StreamSubscription? _msgsReadSub;
+  StreamSubscription? _presenceSub;
+  StreamSubscription? _typingSub;
 
   List<ConversationModel> get conversations => _conversations;
   bool get isLoadingConversations => _isLoadingConversations;
@@ -33,6 +40,8 @@ class ChatProvider extends ChangeNotifier {
   List<MessageModel> getMessagesFor(String conversationId) =>
       _conversationMessages[conversationId] ?? [];
 
+  String? getTypingUser(String conversationId) => _typingStatus[conversationId];
+
   ChatProvider(this._apiClient, this._signalRService, this._authProvider) {
     _initSignalRSubscriptions();
   }
@@ -41,6 +50,10 @@ class ChatProvider extends ChangeNotifier {
     _msgReceivedSub = _signalRService.onMessageReceived.listen(_handleIncomingMessage);
     _msgSentSub = _signalRService.onMessageSent.listen(_handleMessageConfirmation);
     _convUpdatedSub = _signalRService.onConversationUpdated.listen(_handleConversationUpdated);
+    _msgDeliveredSub = _signalRService.onMessageDelivered.listen(_handleMessageDelivered);
+    _msgsReadSub = _signalRService.onMessagesRead.listen(_handleMessagesRead);
+    _presenceSub = _signalRService.onUserPresenceChanged.listen(_handleUserPresenceChanged);
+    _typingSub = _signalRService.onUserTyping.listen(_handleUserTyping);
   }
 
   Future<void> connectRealTime() async {
@@ -95,6 +108,7 @@ class ChatProvider extends ChangeNotifier {
     _activeConversationId = conversationId;
     await _signalRService.joinConversation(conversationId);
     await loadMessages(conversationId);
+    await markConversationAsRead(conversationId);
   }
 
   Future<void> leaveConversation() async {
@@ -205,6 +219,30 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> markMessageDelivered(String messageId, String conversationId) async {
+    await _signalRService.markMessageDelivered(messageId, conversationId);
+  }
+
+  Future<void> markConversationAsRead(String conversationId) async {
+    final idx = _conversations.indexWhere((c) => c.conversationId == conversationId);
+    if (idx != -1 && _conversations[idx].unreadCount > 0) {
+      _conversations[idx] = _conversations[idx].copyWith(unreadCount: 0);
+      notifyListeners();
+    }
+
+    try {
+      await _signalRService.markConversationAsRead(conversationId);
+    } catch (_) {
+      try {
+        await _apiClient.post('/conversations/$conversationId/read');
+      } catch (_) {}
+    }
+  }
+
+  void sendTyping(String conversationId, bool isTyping) {
+    _signalRService.sendTypingIndicator(conversationId, isTyping);
+  }
+
   void _handleIncomingMessage(MessageModel message) {
     final convId = message.conversationId;
     if (!_conversationMessages.containsKey(convId)) {
@@ -221,7 +259,15 @@ class ChatProvider extends ChangeNotifier {
       list.sort((a, b) => a.createdAtUtc.compareTo(b.createdAtUtc));
     }
 
-    _updateConversationLastMessage(convId, message, incrementUnread: _activeConversationId != convId);
+    final isCurrentActive = _activeConversationId == convId;
+    _updateConversationLastMessage(convId, message, incrementUnread: !isCurrentActive);
+
+    // Auto mark delivered and read if we are actively in this conversation
+    markMessageDelivered(message.id, convId);
+    if (isCurrentActive) {
+      markConversationAsRead(convId);
+    }
+
     notifyListeners();
   }
 
@@ -242,6 +288,103 @@ class ChatProvider extends ChangeNotifier {
     }
 
     _updateConversationLastMessage(convId, message);
+    notifyListeners();
+  }
+
+  void _handleMessageDelivered(Map<String, dynamic> data) {
+    final messageId = data['messageId'] as String?;
+    final convId = data['conversationId'] as String?;
+    if (convId == null || messageId == null) return;
+
+    final list = _conversationMessages[convId];
+    if (list != null) {
+      final idx = list.indexWhere((m) => m.id == messageId);
+      if (idx != -1 && list[idx].status == MessageStatus.sent) {
+        list[idx] = list[idx].copyWith(status: MessageStatus.delivered);
+        _updateConversationLastMessage(convId, list[idx]);
+        notifyListeners();
+      }
+    }
+  }
+
+  void _handleMessagesRead(Map<String, dynamic> data) {
+    final convId = data['conversationId'] as String?;
+    final readByUserId = data['readByUserId'] as String?;
+    final readAtUtc = data['readAtUtc'] as DateTime?;
+    if (convId == null) return;
+
+    final currentUserId = _authProvider.currentUser?.id;
+
+    // If current user read it, clear unread count
+    if (readByUserId == currentUserId) {
+      final idx = _conversations.indexWhere((c) => c.conversationId == convId);
+      if (idx != -1) {
+        _conversations[idx] = _conversations[idx].copyWith(unreadCount: 0);
+      }
+    }
+
+    // Mark messages sent before readAtUtc as Read
+    final list = _conversationMessages[convId];
+    if (list != null && readAtUtc != null) {
+      bool updated = false;
+      for (int i = 0; i < list.length; i++) {
+        if (list[i].status != MessageStatus.read &&
+            !list[i].createdAtUtc.isAfter(readAtUtc)) {
+          list[i] = list[i].copyWith(status: MessageStatus.read);
+          updated = true;
+        }
+      }
+      if (updated) {
+        if (list.isNotEmpty) {
+          _updateConversationLastMessage(convId, list.last);
+        }
+        notifyListeners();
+      }
+    }
+  }
+
+  void _handleUserPresenceChanged(Map<String, dynamic> data) {
+    final userId = data['userId'] as String?;
+    final isOnline = data['isOnline'] == true;
+    final lastSeen = data['lastSeenAtUtc'] as DateTime?;
+    if (userId == null) return;
+
+    bool updated = false;
+    for (int i = 0; i < _conversations.length; i++) {
+      final c = _conversations[i];
+      if (c.otherParticipant?.userId == userId) {
+        final updatedParticipant = c.otherParticipant!.copyWith(
+          isOnline: isOnline,
+          lastSeenAtUtc: lastSeen ?? c.otherParticipant!.lastSeenAtUtc,
+        );
+        _conversations[i] = c.copyWith(otherParticipant: updatedParticipant);
+        updated = true;
+      }
+    }
+
+    if (updated) {
+      notifyListeners();
+    }
+  }
+
+  void _handleUserTyping(Map<String, dynamic> data) {
+    final convId = data['conversationId'] as String?;
+    final username = data['username'] as String?;
+    final isTyping = data['isTyping'] == true;
+    if (convId == null) return;
+
+    _typingTimers[convId]?.cancel();
+
+    if (isTyping) {
+      _typingStatus[convId] = username;
+      _typingTimers[convId] = Timer(const Duration(seconds: 4), () {
+        _typingStatus[convId] = null;
+        notifyListeners();
+      });
+    } else {
+      _typingStatus[convId] = null;
+    }
+
     notifyListeners();
   }
 
@@ -275,6 +418,13 @@ class ChatProvider extends ChangeNotifier {
     _msgReceivedSub?.cancel();
     _msgSentSub?.cancel();
     _convUpdatedSub?.cancel();
+    _msgDeliveredSub?.cancel();
+    _msgsReadSub?.cancel();
+    _presenceSub?.cancel();
+    _typingSub?.cancel();
+    for (var t in _typingTimers.values) {
+      t?.cancel();
+    }
     super.dispose();
   }
 }

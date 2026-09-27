@@ -102,6 +102,44 @@ public class ConversationsController : ControllerBase
         return CreatedAtAction(nameof(GetMessages), new { id }, message);
     }
 
+    [HttpPost("{id:guid}/read")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> MarkConversationRead(
+        [FromRoute] Guid id,
+        CancellationToken ct)
+    {
+        var currentUserId = GetCurrentUserId();
+        var readAt = await _chatService.MarkConversationReadAsync(id, currentUserId, ct);
+
+        var participantIds = await _chatService.GetConversationParticipantUserIdsAsync(id, ct);
+        foreach (var participantId in participantIds)
+        {
+            await _hubContext.Clients.Group($"user_{participantId}").MessagesRead(id, currentUserId, readAt);
+        }
+
+        return Ok(new { conversationId = id, readAtUtc = readAt });
+    }
+
+    [HttpPost("{id:guid}/messages/{messageId:guid}/delivered")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> MarkMessageDelivered(
+        [FromRoute] Guid id,
+        [FromRoute] Guid messageId,
+        CancellationToken ct)
+    {
+        var currentUserId = GetCurrentUserId();
+        await _chatService.MarkMessageDeliveredAsync(messageId, currentUserId, ct);
+
+        var participantIds = await _chatService.GetConversationParticipantUserIdsAsync(id, ct);
+        foreach (var participantId in participantIds)
+        {
+            await _hubContext.Clients.Group($"user_{participantId}").MessageDelivered(messageId, id);
+        }
+
+        return Ok(new { messageId, conversationId = id });
+    }
+
     private Guid GetCurrentUserId()
     {
         var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

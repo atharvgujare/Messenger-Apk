@@ -166,6 +166,57 @@ public class ChatService : IChatService
         return await _conversationRepository.GetMemberUserIdsAsync(conversationId, ct);
     }
 
+    public async Task MarkMessageDeliveredAsync(
+        Guid messageId, 
+        Guid recipientUserId, 
+        CancellationToken ct = default)
+    {
+        var message = await _messageRepository.GetByIdAsync(messageId, ct);
+        if (message == null) return;
+
+        var isMember = await _conversationRepository.IsMemberAsync(message.ConversationId, recipientUserId, ct);
+        if (!isMember) return;
+
+        // If the recipient is not the sender, mark as delivered
+        if (message.SenderId != recipientUserId)
+        {
+            await _messageRepository.MarkMessageAsDeliveredAsync(messageId, ct);
+        }
+    }
+
+    public async Task<DateTime> MarkConversationReadAsync(
+        Guid conversationId, 
+        Guid readerUserId, 
+        CancellationToken ct = default)
+    {
+        var isMember = await _conversationRepository.IsMemberAsync(conversationId, readerUserId, ct);
+        if (!isMember)
+        {
+            throw new UnauthorizedException("You are not a member of this conversation.");
+        }
+
+        var member = await _conversationRepository.GetMemberAsync(conversationId, readerUserId, ct);
+        var conv = await _conversationRepository.GetByIdAsync(conversationId, ct);
+        if (conv == null)
+        {
+            throw new NotFoundException("Conversation not found.");
+        }
+
+        var readAtUtc = DateTime.UtcNow;
+
+        if (member != null)
+        {
+            member.LastReadMessageId = conv.LastMessageId;
+            member.LastReadAtUtc = readAtUtc;
+            await _conversationRepository.UpdateMemberAsync(member, ct);
+            await _conversationRepository.SaveChangesAsync(ct);
+        }
+
+        await _messageRepository.MarkMessagesAsReadAsync(conversationId, readerUserId, readAtUtc, ct);
+
+        return readAtUtc;
+    }
+
     private async Task<ConversationDto> MapToConversationDtoAsync(
         Conversation conv, 
         Guid currentUserId, 

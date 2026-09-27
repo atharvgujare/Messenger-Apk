@@ -28,4 +28,14 @@ public interface IChatService
     Task<IReadOnlyList<Guid>> GetConversationParticipantUserIdsAsync(
         Guid conversationId, 
         CancellationToken ct = default);
+
+    Task MarkMessageDeliveredAsync(
+        Guid messageId, 
+        Guid recipientUserId, 
+        CancellationToken ct = default);
+
+    Task<DateTime> MarkConversationReadAsync(
+        Guid conversationId, 
+        Guid readerUserId, 
+        CancellationToken ct = default);
 }

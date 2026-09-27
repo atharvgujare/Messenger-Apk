@@ -57,6 +57,35 @@ public class MessageRepository : IMessageRepository
         return Task.CompletedTask;
     }
 
+    public async Task MarkMessageAsDeliveredAsync(Guid messageId, CancellationToken ct = default)
+    {
+        var message = await _context.Messages.FirstOrDefaultAsync(m => m.Id == messageId, ct);
+        if (message != null && message.Status == Domain.Enums.MessageStatus.Sent)
+        {
+            message.Status = Domain.Enums.MessageStatus.Delivered;
+            await _context.SaveChangesAsync(ct);
+        }
+    }
+
+    public async Task MarkMessagesAsReadAsync(Guid conversationId, Guid readerUserId, DateTime readAtUtc, CancellationToken ct = default)
+    {
+        var messages = await _context.Messages
+            .Where(m => m.ConversationId == conversationId && 
+                        m.SenderId != readerUserId && 
+                        m.Status < Domain.Enums.MessageStatus.Read &&
+                        m.CreatedAtUtc <= readAtUtc)
+            .ToListAsync(ct);
+
+        if (messages.Count > 0)
+        {
+            foreach (var m in messages)
+            {
+                m.Status = Domain.Enums.MessageStatus.Read;
+            }
+            await _context.SaveChangesAsync(ct);
+        }
+    }
+
     public async Task<int> GetUnreadCountAsync(
         Guid conversationId, 
         Guid userId, 

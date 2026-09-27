@@ -12,6 +12,7 @@ public interface IConversationRepository
     Task UpdateConversationAsync(Conversation conversation, CancellationToken ct = default);
     Task UpdateMemberAsync(ConversationMember member, CancellationToken ct = default);
     Task<bool> IsMemberAsync(Guid conversationId, Guid userId, CancellationToken ct = default);
+    Task<ConversationMember?> GetMemberAsync(Guid conversationId, Guid userId, CancellationToken ct = default);
     Task<IReadOnlyList<Guid>> GetMemberUserIdsAsync(Guid conversationId, CancellationToken ct = default);
     Task SaveChangesAsync(CancellationToken ct = default);
 }

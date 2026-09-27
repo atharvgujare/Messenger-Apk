@@ -180,6 +180,90 @@ public class ChatServiceTests
     }
 
     [Fact]
+    public async Task MarkMessageDeliveredAsync_ShouldCallRepo_WhenRecipientIsMemberAndNotSender()
+    {
+        var messageId = Guid.NewGuid();
+        var convId = Guid.NewGuid();
+        var senderId = Guid.NewGuid();
+        var recipientId = Guid.NewGuid();
+
+        var message = new Message
+        {
+            Id = messageId,
+            ConversationId = convId,
+            SenderId = senderId,
+            Status = MessageStatus.Sent
+        };
+
+        _msgRepoMock.Setup(m => m.GetByIdAsync(messageId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(message);
+        _convRepoMock.Setup(c => c.IsMemberAsync(convId, recipientId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        await _chatService.MarkMessageDeliveredAsync(messageId, recipientId);
+
+        _msgRepoMock.Verify(m => m.MarkMessageAsDeliveredAsync(messageId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task MarkMessageDeliveredAsync_ShouldNotUpdate_WhenSenderTriesToDeliverOwnMessage()
+    {
+        var messageId = Guid.NewGuid();
+        var convId = Guid.NewGuid();
+        var senderId = Guid.NewGuid();
+
+        var message = new Message
+        {
+            Id = messageId,
+            ConversationId = convId,
+            SenderId = senderId,
+            Status = MessageStatus.Sent
+        };
+
+        _msgRepoMock.Setup(m => m.GetByIdAsync(messageId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(message);
+        _convRepoMock.Setup(c => c.IsMemberAsync(convId, senderId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        await _chatService.MarkMessageDeliveredAsync(messageId, senderId);
+
+        _msgRepoMock.Verify(m => m.MarkMessageAsDeliveredAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task MarkConversationReadAsync_ShouldUpdateMemberAndMarkMessages_WhenAuthorized()
+    {
+        var convId = Guid.NewGuid();
+        var readerId = Guid.NewGuid();
+        var lastMsgId = Guid.NewGuid();
+
+        var conv = new Conversation
+        {
+            Id = convId,
+            LastMessageId = lastMsgId
+        };
+        var member = new ConversationMember
+        {
+            ConversationId = convId,
+            UserId = readerId
+        };
+
+        _convRepoMock.Setup(c => c.IsMemberAsync(convId, readerId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _convRepoMock.Setup(c => c.GetMemberAsync(convId, readerId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(member);
+        _convRepoMock.Setup(c => c.GetByIdAsync(convId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(conv);
+
+        var readAt = await _chatService.MarkConversationReadAsync(convId, readerId);
+
+        Assert.Equal(lastMsgId, member.LastReadMessageId);
+        Assert.NotNull(member.LastReadAtUtc);
+        _convRepoMock.Verify(c => c.UpdateMemberAsync(member, It.IsAny<CancellationToken>()), Times.Once);
+        _msgRepoMock.Verify(m => m.MarkMessagesAsReadAsync(convId, readerId, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task GetConversationMessagesAsync_ShouldThrowUnauthorized_WhenNotMember()
     {
         var userId = Guid.NewGuid();

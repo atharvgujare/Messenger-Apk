@@ -84,6 +84,12 @@ public class ConversationRepository : IConversationRepository
             .AnyAsync(m => m.ConversationId == conversationId && m.UserId == userId, ct);
     }
 
+    public async Task<ConversationMember?> GetMemberAsync(Guid conversationId, Guid userId, CancellationToken ct = default)
+    {
+        return await _context.ConversationMembers
+            .FirstOrDefaultAsync(m => m.ConversationId == conversationId && m.UserId == userId, ct);
+    }
+
     public async Task<IReadOnlyList<Guid>> GetMemberUserIdsAsync(Guid conversationId, CancellationToken ct = default)
     {
         return await _context.ConversationMembers

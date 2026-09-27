@@ -1,6 +1,7 @@
 using Messaging.Application.Common.Interfaces;
 using Messaging.Application.Services;
 using Messaging.Infrastructure.Data;
+using Messaging.Infrastructure.Presence;
 using Messaging.Infrastructure.Repositories;
 using Messaging.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
@@ -30,6 +31,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IChatService, ChatService>();
+        services.AddSingleton<IPresenceTracker, PresenceTracker>();
 
         return services;
     }

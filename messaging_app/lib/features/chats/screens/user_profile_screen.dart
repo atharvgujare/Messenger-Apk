@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -104,6 +105,58 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
+  bool _isUploadingPhoto = false;
+
+  Future<void> _pickAndUploadPhoto(BuildContext context, ImageSource source) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final auth = context.read<AuthProvider>();
+
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      if (pickedFile == null) return;
+
+      setState(() => _isUploadingPhoto = true);
+      final bytes = await pickedFile.readAsBytes();
+
+      final ok = await auth.uploadAvatar(bytes, pickedFile.name);
+      if (mounted) {
+        setState(() => _isUploadingPhoto = false);
+        if (ok) {
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Profile photo updated successfully'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        } else {
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Failed to upload photo. Please try again.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isUploadingPhoto = false);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Error selecting image: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   void _showPhotoOptions(BuildContext context) {
     final auth = context.read<AuthProvider>();
     final hasPhoto = auth.currentUser?.avatarUrl != null && auth.currentUser!.avatarUrl!.isNotEmpty;
@@ -127,12 +180,25 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               ListTile(
                 leading: const CircleAvatar(
                   backgroundColor: Color(0xFFE8F5E9),
-                  child: Icon(Icons.link, color: AppTheme.whatsappGreenLight),
+                  child: Icon(Icons.camera_alt, color: AppTheme.whatsappGreenLight),
                 ),
-                title: const Text('Enter Image URL / Preset'),
+                title: const Text('Camera'),
+                subtitle: const Text('Take a picture from your camera'),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _enterImageUrlDialog(context);
+                  _pickAndUploadPhoto(context, ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFE8F5E9),
+                  child: Icon(Icons.photo_library, color: AppTheme.whatsappGreenLight),
+                ),
+                title: const Text('Gallery'),
+                subtitle: const Text('Choose a photo from your device'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndUploadPhoto(context, ImageSource.gallery);
                 },
               ),
               ListTile(
@@ -141,6 +207,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   child: Icon(Icons.auto_awesome, color: Colors.blue),
                 ),
                 title: const Text('Choose Avatar Style'),
+                subtitle: const Text('Pick from curated illustrations'),
                 onTap: () {
                   Navigator.pop(ctx);
                   _choosePresetAvatar(context);
@@ -166,46 +233,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       );
                     }
                   },
-
                 ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  void _enterImageUrlDialog(BuildContext context) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Profile Photo URL'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            hintText: 'https://example.com/avatar.jpg',
-            prefixIcon: Icon(Icons.link),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(minimumSize: const Size(80, 40)),
-            onPressed: () async {
-              final url = controller.text.trim();
-              if (url.isNotEmpty) {
-                Navigator.pop(ctx);
-                final auth = context.read<AuthProvider>();
-                await auth.updateProfile(avatarUrl: url);
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
   }
@@ -308,7 +339,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     bottom: 4,
                     right: 4,
                     child: InkWell(
-                      onTap: () => _showPhotoOptions(context),
+                      onTap: _isUploadingPhoto ? null : () => _showPhotoOptions(context),
                       borderRadius: BorderRadius.circular(30),
                       child: Container(
                         padding: const EdgeInsets.all(12),
@@ -316,11 +347,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           color: AppTheme.whatsappGreen,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          color: Colors.white,
-                          size: 22,
-                        ),
+                        child: _isUploadingPhoto
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.camera_alt,
+                                color: Colors.white,
+                                size: 22,
+                              ),
                       ),
                     ),
                   ),

@@ -432,17 +432,23 @@ class ChatProvider extends ChangeNotifier {
     final isCurrentActive = _activeConversationId == convId;
     _updateConversationLastMessage(convId, message, incrementUnread: !isCurrentActive);
 
-    if (!isCurrentActive) {
+    final myUserId = _authProvider.currentUserId.trim().toLowerCase();
+    final myUsername = _authProvider.currentUsername.trim().toLowerCase();
+    final isMe = (myUserId.isNotEmpty && message.senderId.trim().toLowerCase() == myUserId) ||
+                 (myUsername.isNotEmpty && message.senderUsername.trim().toLowerCase() == myUsername);
+
+    if (!isCurrentActive && !isMe) {
       final convMatches = _conversations.where((c) => c.conversationId == convId);
       final ConversationModel? conv = convMatches.isNotEmpty ? convMatches.first : null;
 
       final String senderTitle;
+      final senderName = message.senderDisplayName.isNotEmpty ? message.senderDisplayName : message.senderUsername;
       if (conv != null && conv.type == ConversationType.group) {
-        senderTitle = '${conv.title} (${message.senderUsername})';
+        senderTitle = '${conv.title} ($senderName)';
       } else if (conv != null) {
         senderTitle = conv.title;
       } else {
-        senderTitle = message.senderUsername;
+        senderTitle = senderName;
       }
 
       NotificationService.instance.showMessageNotification(
@@ -662,6 +668,8 @@ class ChatProvider extends ChangeNotifier {
       );
       _conversations[idx] = updated;
       _sortConversations();
+    } else {
+      loadConversations();
     }
   }
 

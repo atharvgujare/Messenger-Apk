@@ -124,7 +124,16 @@ class AuthApiService {
       body: body,
     );
     return UserProfileModel.fromJson(response);
+  }
 
+  Future<UserProfileModel> uploadAvatar(List<int> bytes, String filename) async {
+    final response = await _client.uploadMultipart(
+      '/users/me/avatar',
+      fieldName: 'file',
+      fileBytes: bytes,
+      filename: filename,
+    );
+    return UserProfileModel.fromJson(response);
   }
 }
 

@@ -265,7 +265,8 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final auth = context.watch<AuthProvider>();
-    final currentUserId = auth.currentUser?.userId ?? '';
+    final currentUserId = auth.currentUserId.trim().toLowerCase();
+    final currentUsername = auth.currentUsername.trim().toLowerCase();
     final chatProvider = context.watch<ChatProvider>();
 
     // Live update of conversation state & presence
@@ -401,7 +402,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       itemCount: messages.length,
                       itemBuilder: (context, index) {
                         final msg = messages[index];
-                        final isMe = msg.senderId == currentUserId;
+                        final isMe = (currentUserId.isNotEmpty && msg.senderId.trim().toLowerCase() == currentUserId) ||
+                                     (currentUsername.isNotEmpty && msg.senderUsername.trim().toLowerCase() == currentUsername);
                         return _buildMessageBubble(context, theme, msg, isMe, provider);
                       },
                     );

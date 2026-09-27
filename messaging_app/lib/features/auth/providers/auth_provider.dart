@@ -12,7 +12,17 @@ class AuthProvider extends ChangeNotifier {
   UserProfileModel? _currentUser;
   String? _errorMessage;
 
-  AuthProvider(this._apiService, this._storage);
+  AuthProvider(this._apiService, this._storage) {
+    if (_storage.hasSession) {
+      _currentUser = UserProfileModel(
+        userId: _storage.getUserId() ?? '',
+        username: _storage.getUsername() ?? '',
+        displayName: _storage.getDisplayName() ?? _storage.getUsername() ?? '',
+        email: _storage.getEmail(),
+        isOnline: true,
+      );
+    }
+  }
 
   bool get isLoading => _isLoading;
   bool get isInitialized => _isInitialized;
@@ -20,12 +30,31 @@ class AuthProvider extends ChangeNotifier {
   UserProfileModel? get currentUser => _currentUser;
   String? get errorMessage => _errorMessage;
 
+  String get currentUserId => _currentUser?.userId.isNotEmpty == true
+      ? _currentUser!.userId
+      : (_storage.getUserId() ?? '');
+
+  String get currentUsername => _currentUser?.username.isNotEmpty == true
+      ? _currentUser!.username
+      : (_storage.getUsername() ?? '');
+
+  String get currentDisplayName => _currentUser?.displayName.isNotEmpty == true
+      ? _currentUser!.displayName
+      : (_storage.getDisplayName() ?? _storage.getUsername() ?? '');
+
   Future<void> tryAutoLogin() async {
     _isLoading = true;
     notifyListeners();
 
     try {
       if (_storage.hasSession) {
+        _currentUser ??= UserProfileModel(
+          userId: _storage.getUserId() ?? '',
+          username: _storage.getUsername() ?? '',
+          displayName: _storage.getDisplayName() ?? _storage.getUsername() ?? '',
+          email: _storage.getEmail(),
+          isOnline: true,
+        );
         // Try to fetch profile with existing access token
         try {
           _currentUser = await _apiService.getMe();
@@ -219,6 +248,25 @@ class AuthProvider extends ChangeNotifier {
         bio: bio,
         avatarUrl: avatarUrl,
       );
+      _currentUser = updatedProfile;
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> uploadAvatar(List<int> bytes, String filename) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final updatedProfile = await _apiService.uploadAvatar(bytes, filename);
       _currentUser = updatedProfile;
       _isLoading = false;
       notifyListeners();

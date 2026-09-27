@@ -49,6 +49,59 @@ public class UsersController : ControllerBase
         return Ok(updatedProfile);
     }
 
+    [HttpPost("me/avatar")]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(UserProfileDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UploadAvatar(IFormFile file, CancellationToken ct)
+    {
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new { message = "No image file uploaded." });
+        }
+
+        if (file.Length > 10 * 1024 * 1024)
+        {
+            return BadRequest(new { message = "Image file size must not exceed 10MB." });
+        }
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+        if (!allowedExtensions.Contains(ext))
+        {
+            return BadRequest(new { message = "Invalid image format. Allowed: .jpg, .jpeg, .png, .webp" });
+        }
+
+        var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "avatars");
+        if (!Directory.Exists(uploadsFolder))
+        {
+            Directory.CreateDirectory(uploadsFolder);
+        }
+
+        var currentUserId = GetCurrentUserId();
+        var uniqueFileName = $"{currentUserId}_{DateTime.UtcNow.Ticks}{ext}";
+        var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream, ct);
+        }
+
+        var requestBase = $"{Request.Scheme}://{Request.Host}";
+        var avatarUrl = $"{requestBase}/avatars/{uniqueFileName}";
+
+        var currentProfile = await _userService.GetProfileByIdAsync(currentUserId, currentUserId, ct);
+        var updateRequest = new UpdateProfileRequest
+        {
+            DisplayName = currentProfile.DisplayName,
+            Bio = currentProfile.Bio,
+            AvatarUrl = avatarUrl
+        };
+
+        var updated = await _userService.UpdateProfileAsync(currentUserId, updateRequest, ct);
+        return Ok(updated);
+    }
+
     private Guid GetCurrentUserId()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

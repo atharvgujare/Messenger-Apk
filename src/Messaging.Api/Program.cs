@@ -115,6 +115,7 @@ var app = builder.Build();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseCors("AllowAll");
+app.UseStaticFiles();
 
 if (app.Environment.IsDevelopment())
 {

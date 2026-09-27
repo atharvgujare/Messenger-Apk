@@ -27,4 +27,14 @@ class UserApiService {
     final response = await _client.put('/users/me', body: data);
     return UserProfileModel.fromJson(response);
   }
+
+  Future<UserProfileModel> uploadAvatar(List<int> bytes, String filename) async {
+    final response = await _client.uploadMultipart(
+      '/users/me/avatar',
+      fieldName: 'file',
+      fileBytes: bytes,
+      filename: filename,
+    );
+    return UserProfileModel.fromJson(response);
+  }
 }

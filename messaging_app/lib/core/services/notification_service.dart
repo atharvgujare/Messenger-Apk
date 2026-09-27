@@ -27,11 +27,21 @@ class NotificationService {
         },
       );
 
-      // Request notification permission for Android 13+
+      // Create notification channel (Android 8.0+ / 15 strictly requires this!)
+      const channel = AndroidNotificationChannel(
+        'whatsapp_messenger_channel',
+        'WhatsApp Messages',
+        description: 'Notifications for new WhatsApp messages',
+        importance: Importance.max,
+        playSound: true,
+        enableVibration: true,
+      );
+
       final androidImplementation = _localNotifications
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
       if (androidImplementation != null) {
+        await androidImplementation.createNotificationChannel(channel);
         await androidImplementation.requestNotificationsPermission();
       }
 
@@ -39,6 +49,16 @@ class NotificationService {
     } catch (e) {
       debugPrint('Error initializing NotificationService: $e');
     }
+  }
+
+  Future<bool?> requestPermission() async {
+    final androidImplementation = _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    if (androidImplementation != null) {
+      return await androidImplementation.requestNotificationsPermission();
+    }
+    return null;
   }
 
   Future<void> showMessageNotification({
@@ -53,6 +73,7 @@ class NotificationService {
         channelDescription: 'Notifications for new WhatsApp messages',
         importance: Importance.max,
         priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
         showWhen: true,
         enableVibration: true,
         playSound: true,

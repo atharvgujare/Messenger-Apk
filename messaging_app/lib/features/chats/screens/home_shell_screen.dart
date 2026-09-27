@@ -12,6 +12,7 @@ import 'chat_screen.dart';
 import 'create_group_screen.dart';
 import 'settings_screen.dart';
 import 'user_profile_screen.dart';
+import '../../../core/services/notification_service.dart';
 
 class HomeShellScreen extends StatefulWidget {
   const HomeShellScreen({super.key});
@@ -33,6 +34,7 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
       final chat = context.read<ChatProvider>();
       chat.connectRealTime();
       chat.loadConversations();
+      NotificationService.instance.requestPermission();
     });
   }
 
@@ -616,13 +618,22 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
                 ),
             ],
           ),
-          subtitle: Row(
-            children: [
-              // Delivery Status Checkmark (if sent by current user)
-              if (lastMsg != null && lastMsg.senderId == context.read<AuthProvider>().currentUser?.userId) ...[
-                _buildMessageStatusIcon(lastMsg.status),
-                const SizedBox(width: 4),
-              ],
+          subtitle: Builder(
+            builder: (context) {
+              final auth = context.read<AuthProvider>();
+              final myUserId = auth.currentUserId.trim().toLowerCase();
+              final myUsername = auth.currentUsername.trim().toLowerCase();
+              final isSentByMe = lastMsg != null &&
+                  ((myUserId.isNotEmpty && lastMsg.senderId.trim().toLowerCase() == myUserId) ||
+                   (myUsername.isNotEmpty && lastMsg.senderUsername.trim().toLowerCase() == myUsername));
+
+              return Row(
+                children: [
+                  // Delivery Status Checkmark (if sent by current user)
+                  if (isSentByMe) ...[
+                    _buildMessageStatusIcon(lastMsg.status),
+                    const SizedBox(width: 4),
+                  ],
               // Group sender prefix if in a group
               if (isGroup && lastMsg != null && lastMsg.senderDisplayName.isNotEmpty) ...[
                 Text(
@@ -670,7 +681,9 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
                 ),
               ],
             ],
-          ),
+          );
+        },
+      ),
           onTap: () => _openChat(conv),
           onLongPress: () => _showChatOptions(conv),
         );

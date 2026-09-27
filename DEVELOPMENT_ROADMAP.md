@@ -9,8 +9,8 @@ This document outlines the phased engineering milestones for Messenger. Each pha
 | Phase | Milestone | Status | Key Deliverables |
 |---|---|---|---|
 | **Phase 0** | **Environment & Solution Foundation** | Completed | Environment audit, solution skeleton, clean architecture, compilation & tests passing, foundational documentation |
-| **Phase 1** | **Authentication & Identity** | Next | Registration, login, JWT + refresh tokens, password hashing, user entity, username validation |
-| **Phase 2** | **User Discovery & Profiles** | Pending | Case-insensitive @username & display name search, profile screen, user details |
+| **Phase 1** | **Authentication & Identity** | Completed | Registration, login, JWT + refresh tokens, password hashing, user entity, username validation, SQL Server migrations |
+| **Phase 2** | **User Discovery & Profiles** | Next | Case-insensitive @username & display name search, profile screen, user details |
 | **Phase 3** | **Basic Real-Time Chat** | Pending | Conversation creation, EF Core message store, SignalR ChatHub, Send/Receive messages, Chat UI |
 | **Phase 4** | **Message States & Presence** | Pending | Sent (✓), Delivered (✓✓), Read (✓✓), Real-time typing indicators, Online/Offline presence & last seen |
 | **Phase 5** | **Message Operations** | Pending | Quoted replies, message editing ("Edited"), delete for me / everyone, emoji reactions, pinned & saved messages |
@@ -34,14 +34,14 @@ This document outlines the phased engineering milestones for Messenger. Each pha
 
 ---
 
-### Phase 1: Authentication & Identity (Next Step)
-- [ ] Implement `User`, `UserProfile`, `UserSession` domain entities.
-- [ ] Create EF Core `AppDbContext` and initial migration for SQL Server Express.
-- [ ] Secure password hashing service (`BCrypt`).
-- [ ] JWT access token + refresh token generation and rotation.
-- [ ] REST endpoints: `/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout`.
-- [ ] Flutter Auth screens: Modern Onboarding, Register, Login, and persistent session state.
-- [ ] End-to-end verification: Register user `@atharv`, login, receive JWT, and verify token rotation.
+### Phase 1: Authentication & Identity (COMPLETED)
+- [x] Implement `User`, `UserProfile`, `UserSession` domain entities.
+- [x] Create EF Core `AppDbContext` and initial migration for SQL Server Express.
+- [x] Secure password hashing service (`BCrypt`).
+- [x] JWT access token + refresh token generation and rotation.
+- [x] REST endpoints: `/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout`, `/api/auth/me`.
+- [x] Flutter Auth screens: Modern Onboarding, Register, Login, and persistent session state.
+- [x] End-to-end verification: Register user `@atharv`, login, receive JWT, and verify token rotation.
 
 ---
 

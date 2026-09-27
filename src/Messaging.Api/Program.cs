@@ -1,4 +1,5 @@
 using System.Text;
+using Messaging.Api.Hubs;
 using Messaging.Api.Middlewares;
 using Messaging.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -129,5 +130,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<ChatHub>("/hubs/chat");
 
 app.Run();

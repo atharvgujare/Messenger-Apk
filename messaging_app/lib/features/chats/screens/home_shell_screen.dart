@@ -1,9 +1,12 @@
-import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../users/screens/user_search_screen.dart';
+import '../models/conversation_model.dart';
+import '../providers/chat_provider.dart';
+import 'chat_screen.dart';
 
 class HomeShellScreen extends StatefulWidget {
   const HomeShellScreen({super.key});
@@ -14,6 +17,16 @@ class HomeShellScreen extends StatefulWidget {
 
 class _HomeShellScreenState extends State<HomeShellScreen> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final chat = context.read<ChatProvider>();
+      chat.connectRealTime();
+      chat.loadConversations();
+    });
+  }
 
   void _confirmLogout() {
     showDialog(
@@ -58,10 +71,13 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
         ? displayName.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase()
         : 'U';
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    final chatProvider = context.watch<ChatProvider>();
+    final conversations = chatProvider.conversations;
+
+    return RefreshIndicator(
+      onRefresh: () => chatProvider.loadConversations(),
+      child: ListView(
+        padding: const EdgeInsets.all(20.0),
         children: [
           // User Identity Card
           Card(
@@ -163,7 +179,7 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Connected to Backend Engine',
+                        'SignalR Real-Time Connected',
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                       Text(
@@ -174,7 +190,7 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
                   ),
                 ),
                 const Text(
-                  'Phase 2 Active',
+                  'Phase 3 Active',
                   style: TextStyle(
                     fontSize: 11,
                     color: AppTheme.accentColor,
@@ -184,7 +200,7 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
           // Search shortcut card
           Card(
@@ -198,50 +214,166 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
           ),
           const SizedBox(height: 20),
 
-          // Overview Section
-          Text(
-            'Recent Conversations',
-            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          // Overview Section Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Conversations',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              if (chatProvider.isLoadingConversations)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
           ),
           const SizedBox(height: 12),
 
-          // Empty state with discover CTA
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.withAlpha(40)),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.mark_chat_unread_outlined,
-                  size: 52,
-                  color: Colors.grey[400],
-                ),
-                const SizedBox(height: 14),
-                const Text(
-                  'No Conversations Yet',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Find contacts using their unique @username and prepare to chat in Phase 3!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                ),
-                const SizedBox(height: 18),
-                ElevatedButton.icon(
-                  onPressed: _openSearch,
-                  icon: const Icon(Icons.search_rounded, size: 18),
-                  label: const Text('Find People'),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(160, 42),
+          if (conversations.isEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.withAlpha(40)),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.mark_chat_unread_outlined,
+                    size: 52,
+                    color: Colors.grey[400],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 14),
+                  const Text(
+                    'No Conversations Yet',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Search for users by @username and send your first real-time message!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  ),
+                  const SizedBox(height: 18),
+                  ElevatedButton.icon(
+                    onPressed: _openSearch,
+                    icon: const Icon(Icons.search_rounded, size: 18),
+                    label: const Text('Find People'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(160, 42),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: conversations.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final conv = conversations[index];
+                final other = conv.otherParticipant;
+                final isOnline = other?.isOnline ?? false;
+                final lastMsg = conv.lastMessage;
+                final lastContent = lastMsg != null ? lastMsg.content : 'No messages yet';
+                final timeStr = DateFormat('h:mm a').format(conv.updatedAtUtc);
+
+                return Card(
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    leading: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundColor: theme.colorScheme.primary,
+                          child: Text(
+                            conv.initials,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        if (isOnline)
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              width: 14,
+                              height: 14,
+                              decoration: BoxDecoration(
+                                color: AppTheme.accentColor,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: theme.cardTheme.color ?? theme.colorScheme.surface,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    title: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            conv.title,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          timeStr,
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                    subtitle: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            lastContent,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: conv.unreadCount > 0 ? (theme.textTheme.bodyMedium?.color ?? Colors.black) : Colors.grey[600],
+                              fontWeight: conv.unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                        if (conv.unreadCount > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '${conv.unreadCount}',
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                      ],
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ChatScreen(conversation: conv),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
             ),
-          ),
         ],
       ),
     );

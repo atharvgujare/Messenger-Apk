@@ -12,6 +12,9 @@ public class AppDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
+    public DbSet<Conversation> Conversations => Set<Conversation>();
+    public DbSet<ConversationMember> ConversationMembers => Set<ConversationMember>();
+    public DbSet<Message> Messages => Set<Message>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -98,6 +101,74 @@ public class AppDbContext : DbContext
                 .HasMaxLength(255);
 
             entity.HasIndex(s => new { s.UserId, s.ExpiresAtUtc });
+        });
+
+        // Conversation Configuration
+        modelBuilder.Entity<Conversation>(entity =>
+        {
+            entity.HasKey(c => c.Id);
+
+            entity.Property(c => c.Type)
+                .HasConversion<byte>();
+
+            entity.Property(c => c.Title)
+                .HasMaxLength(150);
+
+            entity.Property(c => c.AvatarUrl)
+                .HasMaxLength(1024);
+
+            entity.HasOne(c => c.LastMessage)
+                .WithMany()
+                .HasForeignKey(c => c.LastMessageId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(c => c.Members)
+                .WithOne(m => m.Conversation)
+                .HasForeignKey(m => m.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(c => c.Messages)
+                .WithOne(m => m.Conversation)
+                .HasForeignKey(m => m.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ConversationMember Configuration
+        modelBuilder.Entity<ConversationMember>(entity =>
+        {
+            entity.HasKey(m => new { m.ConversationId, m.UserId });
+
+            entity.HasOne(m => m.User)
+                .WithMany()
+                .HasForeignKey(m => m.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(m => new { m.UserId, m.IsArchived, m.IsPinned });
+        });
+
+        // Message Configuration
+        modelBuilder.Entity<Message>(entity =>
+        {
+            entity.HasKey(m => m.Id);
+
+            entity.Property(m => m.Type)
+                .HasConversion<byte>();
+
+            entity.Property(m => m.Status)
+                .HasConversion<byte>();
+
+            entity.HasOne(m => m.Sender)
+                .WithMany()
+                .HasForeignKey(m => m.SenderId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(m => m.ReplyToMessage)
+                .WithMany()
+                .HasForeignKey(m => m.ReplyToMessageId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(m => new { m.ConversationId, m.CreatedAtUtc });
+            entity.HasIndex(m => m.SenderId);
         });
     }
 }

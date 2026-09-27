@@ -11,6 +11,9 @@ import 'features/chats/screens/home_shell_screen.dart';
 import 'features/users/providers/user_search_provider.dart';
 import 'features/users/services/user_api_service.dart';
 
+import 'core/network/signalr_service.dart';
+import 'features/chats/providers/chat_provider.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -21,15 +24,23 @@ void main() async {
   final authProvider = AuthProvider(authApiService, localStorage);
   final userApiService = UserApiService(apiClient);
   final userSearchProvider = UserSearchProvider(userApiService);
+  final signalRService = SignalRService(localStorage);
+  final chatProvider = ChatProvider(apiClient, signalRService, authProvider);
 
   // Attempt auto-login with stored tokens
   await authProvider.tryAutoLogin();
+
+  if (authProvider.isAuthenticated) {
+    chatProvider.connectRealTime();
+    chatProvider.loadConversations();
+  }
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
         ChangeNotifierProvider<UserSearchProvider>.value(value: userSearchProvider),
+        ChangeNotifierProvider<ChatProvider>.value(value: chatProvider),
       ],
       child: const MessengerApp(),
     ),

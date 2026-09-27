@@ -1,0 +1,158 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:signalr_netcore/signalr_client.dart';
+import '../config/app_config.dart';
+import '../storage/local_storage.dart';
+import '../../features/chats/models/message_model.dart';
+import '../../features/chats/models/conversation_model.dart';
+
+class SignalRService {
+  final LocalStorage _storage;
+  HubConnection? _hubConnection;
+
+  final _messageReceivedController = StreamController<MessageModel>.broadcast();
+  final _messageSentController = StreamController<MessageModel>.broadcast();
+  final _conversationUpdatedController = StreamController<ConversationModel>.broadcast();
+  final _connectionStateController = StreamController<HubConnectionState>.broadcast();
+
+  Stream<MessageModel> get onMessageReceived => _messageReceivedController.stream;
+  Stream<MessageModel> get onMessageSent => _messageSentController.stream;
+  Stream<ConversationModel> get onConversationUpdated => _conversationUpdatedController.stream;
+  Stream<HubConnectionState> get onConnectionStateChanged => _connectionStateController.stream;
+
+  bool get isConnected => _hubConnection?.state == HubConnectionState.Connected;
+
+  SignalRService(this._storage);
+
+  Future<void> connect() async {
+    final token = _storage.getAccessToken();
+    if (token == null || token.isEmpty) {
+      debugPrint('[SignalR] No access token found. Cannot connect.');
+      return;
+    }
+
+    if (_hubConnection != null && _hubConnection!.state == HubConnectionState.Connected) {
+      debugPrint('[SignalR] Already connected.');
+      return;
+    }
+
+    try {
+      _hubConnection = HubConnectionBuilder()
+          .withUrl(
+            AppConfig.chatHubUrl,
+            options: HttpConnectionOptions(
+              accessTokenFactory: () async => _storage.getAccessToken() ?? '',
+            ),
+          )
+          .withAutomaticReconnect()
+          .build();
+
+      _hubConnection!.onreconnecting(({error}) {
+        debugPrint('[SignalR] Reconnecting: $error');
+        _connectionStateController.add(HubConnectionState.Reconnecting);
+      });
+
+      _hubConnection!.onreconnected(({connectionId}) {
+        debugPrint('[SignalR] Reconnected. Id: $connectionId');
+        _connectionStateController.add(HubConnectionState.Connected);
+      });
+
+      _hubConnection!.onclose(({error}) {
+        debugPrint('[SignalR] Disconnected: $error');
+        _connectionStateController.add(HubConnectionState.Disconnected);
+      });
+
+      // Register server callbacks
+      _hubConnection!.on('MessageReceived', _onMessageReceived);
+      _hubConnection!.on('MessageSent', _onMessageSent);
+      _hubConnection!.on('ConversationUpdated', _onConversationUpdated);
+
+      await _hubConnection!.start();
+      debugPrint('[SignalR] Connected successfully to ${AppConfig.chatHubUrl}');
+      _connectionStateController.add(HubConnectionState.Connected);
+    } catch (e) {
+      debugPrint('[SignalR] Connection error: $e');
+      _connectionStateController.add(HubConnectionState.Disconnected);
+    }
+  }
+
+  void _onMessageReceived(List<Object?>? args) {
+    if (args != null && args.isNotEmpty && args[0] is Map) {
+      try {
+        final data = Map<String, dynamic>.from(args[0] as Map);
+        final message = MessageModel.fromJson(data);
+        _messageReceivedController.add(message);
+      } catch (e) {
+        debugPrint('[SignalR] Error parsing incoming MessageReceived: $e');
+      }
+    }
+  }
+
+  void _onMessageSent(List<Object?>? args) {
+    if (args != null && args.isNotEmpty && args[0] is Map) {
+      try {
+        final data = Map<String, dynamic>.from(args[0] as Map);
+        final message = MessageModel.fromJson(data);
+        _messageSentController.add(message);
+      } catch (e) {
+        debugPrint('[SignalR] Error parsing MessageSent: $e');
+      }
+    }
+  }
+
+  void _onConversationUpdated(List<Object?>? args) {
+    if (args != null && args.isNotEmpty && args[0] is Map) {
+      try {
+        final data = Map<String, dynamic>.from(args[0] as Map);
+        final conversation = ConversationModel.fromJson(data);
+        _conversationUpdatedController.add(conversation);
+      } catch (e) {
+        debugPrint('[SignalR] Error parsing ConversationUpdated: $e');
+      }
+    }
+  }
+
+  Future<MessageModel?> sendMessage(Map<String, dynamic> request) async {
+    if (!isConnected) {
+      debugPrint('[SignalR] Not connected, attempting reconnection...');
+      await connect();
+      if (!isConnected) {
+        throw Exception('Unable to connect to real-time chat server.');
+      }
+    }
+
+    final result = await _hubConnection!.invoke('SendMessage', args: [request]);
+    if (result is Map) {
+      return MessageModel.fromJson(Map<String, dynamic>.from(result));
+    }
+    return null;
+  }
+
+  Future<void> joinConversation(String conversationId) async {
+    if (isConnected) {
+      await _hubConnection!.invoke('JoinConversation', args: [conversationId]);
+    }
+  }
+
+  Future<void> leaveConversation(String conversationId) async {
+    if (isConnected) {
+      await _hubConnection!.invoke('LeaveConversation', args: [conversationId]);
+    }
+  }
+
+  Future<void> disconnect() async {
+    if (_hubConnection != null) {
+      await _hubConnection!.stop();
+      _hubConnection = null;
+      _connectionStateController.add(HubConnectionState.Disconnected);
+    }
+  }
+
+  void dispose() {
+    disconnect();
+    _messageReceivedController.close();
+    _messageSentController.close();
+    _conversationUpdatedController.close();
+    _connectionStateController.close();
+  }
+}

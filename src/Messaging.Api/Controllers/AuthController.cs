@@ -18,6 +18,40 @@ public class AuthController : ControllerBase
         _authService = authService;
     }
 
+    [HttpPost("send-otp")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> SendOtp([FromBody] SendOtpRequest request, CancellationToken ct)
+    {
+        await _authService.SendOtpAsync(request.Email, ct);
+        return Ok(new { message = "Verification OTP has been sent to your email." });
+    }
+
+    [HttpPost("verify-otp")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpRequest request, CancellationToken ct)
+    {
+        var isValid = await _authService.VerifyOtpAsync(request.Email, request.OtpCode, ct);
+        if (!isValid)
+        {
+            return BadRequest(new { message = "Invalid or expired OTP code." });
+        }
+        return Ok(new { isValid = true, message = "Email successfully verified." });
+    }
+
+    [HttpPost("register-with-otp")]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RegisterWithOtp([FromBody] RegisterWithOtpRequest request, CancellationToken ct)
+    {
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var response = await _authService.RegisterWithOtpAsync(request, ipAddress, ct);
+        return CreatedAtAction(nameof(GetMe), response);
+    }
+
     [HttpPost("register")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -28,6 +62,7 @@ public class AuthController : ControllerBase
         var response = await _authService.RegisterAsync(request, ipAddress, ct);
         return CreatedAtAction(nameof(GetMe), response);
     }
+
 
     [HttpPost("login")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
@@ -81,6 +116,8 @@ public class AuthController : ControllerBase
     }
 
     private Guid GetCurrentUserId()
+
+
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))

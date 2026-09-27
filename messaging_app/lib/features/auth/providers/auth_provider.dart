@@ -127,6 +127,110 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> sendOtp(String email) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _apiService.sendOtp(email);
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> verifyOtp(String email, String otpCode) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final isValid = await _apiService.verifyOtp(email, otpCode);
+      _isLoading = false;
+      notifyListeners();
+      return isValid;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> registerWithOtp({
+    required String email,
+    required String otpCode,
+    required String username,
+    required String displayName,
+    required String password,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await _apiService.registerWithOtp(
+        email: email,
+        otpCode: otpCode,
+        username: username,
+        displayName: displayName,
+        password: password,
+      );
+
+      await _storage.saveAuthData(
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken,
+        userId: response.userId,
+        username: response.username,
+        displayName: response.displayName,
+        email: response.email,
+      );
+
+      _currentUser = response.profile;
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> updateProfile({
+    String? displayName,
+    String? bio,
+    String? avatarUrl,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final updatedProfile = await _apiService.updateProfile(
+        displayName: displayName,
+        bio: bio,
+        avatarUrl: avatarUrl,
+      );
+      _currentUser = updatedProfile;
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<void> logout() async {
     final refreshToken = _storage.getRefreshToken();
     if (refreshToken != null) {
@@ -142,3 +246,4 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 }
+

@@ -422,6 +422,81 @@ public class ChatService : IChatService
             .ToList();
     }
 
+    public async Task<ConversationDto> CreateGroupConversationAsync(
+        Guid creatorUserId, 
+        CreateGroupRequest request, 
+        CancellationToken ct = default)
+    {
+        var title = request.Title?.Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            throw new ValidationException("Title", "Group name/subject cannot be empty.");
+        }
+
+        var newConv = new Conversation
+        {
+            Id = Guid.NewGuid(),
+            Type = ConversationType.Group,
+            Title = title,
+            AvatarUrl = request.AvatarUrl,
+            CreatedByUserId = creatorUserId,
+            CreatedAtUtc = DateTime.UtcNow,
+            UpdatedAtUtc = DateTime.UtcNow
+        };
+
+        // Add creator
+        newConv.Members.Add(new ConversationMember
+        {
+            ConversationId = newConv.Id,
+            UserId = creatorUserId,
+            JoinedAtUtc = DateTime.UtcNow,
+            IsAdmin = true
+        });
+
+        // Add member users
+        var validUserIds = request.MemberUserIds
+            .Where(id => id != creatorUserId)
+            .Distinct();
+
+        foreach (var memberId in validUserIds)
+        {
+            var user = await _userRepository.GetByIdAsync(memberId, ct);
+            if (user != null && user.IsActive)
+            {
+                newConv.Members.Add(new ConversationMember
+                {
+                    ConversationId = newConv.Id,
+                    UserId = memberId,
+                    JoinedAtUtc = DateTime.UtcNow,
+                    IsAdmin = false
+                });
+            }
+        }
+
+        await _conversationRepository.AddConversationAsync(newConv, ct);
+        await _conversationRepository.SaveChangesAsync(ct);
+
+        return await MapToConversationDtoAsync(newConv, creatorUserId, ct);
+    }
+
+    public async Task<bool> TogglePinConversationAsync(
+        Guid conversationId, 
+        Guid userId, 
+        CancellationToken ct = default)
+    {
+        var member = await _conversationRepository.GetMemberAsync(conversationId, userId, ct);
+        if (member == null)
+        {
+            throw new UnauthorizedException("You are not a member of this conversation.");
+        }
+
+        member.IsPinned = !member.IsPinned;
+        await _conversationRepository.UpdateMemberAsync(member, ct);
+        await _conversationRepository.SaveChangesAsync(ct);
+
+        return member.IsPinned;
+    }
+
     private static MessageDto MapToMessageDto(Message m, Guid? currentUserId = null)
     {
         string? replyToSenderUsername = null;

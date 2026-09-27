@@ -50,6 +50,42 @@ public class ConversationsController : ControllerBase
         return Ok(conversation);
     }
 
+    [HttpPost("groups")]
+    [ProducesResponseType(typeof(ConversationDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> CreateGroup(
+        [FromBody] CreateGroupRequest request, 
+        CancellationToken ct)
+    {
+        var currentUserId = GetCurrentUserId();
+        var group = await _chatService.CreateGroupConversationAsync(currentUserId, request, ct);
+
+        // Notify all group members about the new group
+        var participantIds = await _chatService.GetConversationParticipantUserIdsAsync(group.ConversationId, ct);
+        foreach (var participantId in participantIds)
+        {
+            await _hubContext.Clients.Group($"user_{participantId}").ConversationUpdated(group);
+        }
+
+
+        return CreatedAtAction(nameof(GetMessages), new { id = group.ConversationId }, group);
+    }
+
+    [HttpPost("{id:guid}/pin")]
+    [ProducesResponseType(typeof(TogglePinConversationResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> TogglePin(
+        [FromRoute] Guid id, 
+        CancellationToken ct)
+    {
+        var currentUserId = GetCurrentUserId();
+        var isPinned = await _chatService.TogglePinConversationAsync(id, currentUserId, ct);
+        return Ok(new TogglePinConversationResponse { ConversationId = id, IsPinned = isPinned });
+    }
+
+
     [HttpGet("{id:guid}/messages")]
     [ProducesResponseType(typeof(IReadOnlyList<MessageDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

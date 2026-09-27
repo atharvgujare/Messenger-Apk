@@ -7,6 +7,44 @@ class AuthApiService {
 
   AuthApiService(this._client);
 
+  Future<void> sendOtp(String email) async {
+    await _client.post(
+      ApiEndpoints.sendOtp,
+      includeAuth: false,
+      body: {'email': email},
+    );
+  }
+
+  Future<bool> verifyOtp(String email, String otpCode) async {
+    final response = await _client.post(
+      ApiEndpoints.verifyOtp,
+      includeAuth: false,
+      body: {'email': email, 'otpCode': otpCode},
+    );
+    return response is Map<String, dynamic> && response['isValid'] == true;
+  }
+
+  Future<AuthResponseModel> registerWithOtp({
+    required String email,
+    required String otpCode,
+    required String username,
+    required String displayName,
+    required String password,
+  }) async {
+    final response = await _client.post(
+      ApiEndpoints.registerWithOtp,
+      includeAuth: false,
+      body: {
+        'email': email,
+        'otpCode': otpCode,
+        'username': username,
+        'displayName': displayName,
+        'password': password,
+      },
+    );
+    return AuthResponseModel.fromJson(response);
+  }
+
   Future<AuthResponseModel> register({
     required String username,
     required String email,
@@ -25,6 +63,7 @@ class AuthApiService {
     );
     return AuthResponseModel.fromJson(response);
   }
+
 
   Future<AuthResponseModel> login({
     required String loginIdentifier,
@@ -69,4 +108,23 @@ class AuthApiService {
     final response = await _client.get(ApiEndpoints.me);
     return UserProfileModel.fromJson(response);
   }
+
+  Future<UserProfileModel> updateProfile({
+    String? displayName,
+    String? bio,
+    String? avatarUrl,
+  }) async {
+    final body = <String, dynamic>{};
+    if (displayName != null) body['displayName'] = displayName;
+    if (bio != null) body['bio'] = bio;
+    if (avatarUrl != null) body['avatarUrl'] = avatarUrl;
+
+    final response = await _client.put(
+      ApiEndpoints.profile,
+      body: body,
+    );
+    return UserProfileModel.fromJson(response);
+
+  }
 }
+

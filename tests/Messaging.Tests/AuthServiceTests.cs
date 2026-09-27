@@ -13,6 +13,7 @@ public class AuthServiceTests
     private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly Mock<IPasswordHasher> _hasherMock = new();
     private readonly Mock<IJwtTokenService> _tokenServiceMock = new();
+    private readonly Mock<IEmailService> _emailServiceMock = new();
     private readonly AuthService _authService;
 
     public AuthServiceTests()
@@ -20,8 +21,10 @@ public class AuthServiceTests
         _authService = new AuthService(
             _userRepoMock.Object,
             _hasherMock.Object,
-            _tokenServiceMock.Object);
+            _tokenServiceMock.Object,
+            _emailServiceMock.Object);
     }
+
 
     [Fact]
     public async Task RegisterAsync_ShouldCreateUserAndReturnTokens_WhenValidRequest()

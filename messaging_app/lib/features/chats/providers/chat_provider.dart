@@ -6,6 +6,7 @@ import '../../../core/network/signalr_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/conversation_model.dart';
 import '../models/message_model.dart';
+import '../../../core/services/notification_service.dart';
 
 class ChatProvider extends ChangeNotifier {
   final ApiClient _apiClient;
@@ -105,6 +106,7 @@ class ChatProvider extends ChangeNotifier {
         _conversations = response
             .map((c) => ConversationModel.fromJson(c as Map<String, dynamic>))
             .toList();
+        _sortConversations();
       }
     } catch (e) {
       _error = e.toString();
@@ -112,6 +114,15 @@ class ChatProvider extends ChangeNotifier {
       _isLoadingConversations = false;
       notifyListeners();
     }
+  }
+
+  void _sortConversations() {
+    _conversations.sort((a, b) {
+      if (a.isPinned != b.isPinned) {
+        return a.isPinned ? -1 : 1;
+      }
+      return b.updatedAtUtc.compareTo(a.updatedAtUtc);
+    });
   }
 
   Future<ConversationModel?> getOrCreateDirectConversation(String recipientUserId) async {
@@ -128,6 +139,7 @@ class ChatProvider extends ChangeNotifier {
         } else {
           _conversations.insert(0, conversation);
         }
+        _sortConversations();
         notifyListeners();
         return conversation;
       }
@@ -137,6 +149,49 @@ class ChatProvider extends ChangeNotifier {
     }
     return null;
   }
+
+  Future<ConversationModel?> createGroup(String title, List<String> memberUserIds, {String? avatarUrl}) async {
+    try {
+      final response = await _apiClient.post(
+        '/conversations/groups',
+        body: {
+          'title': title,
+          'memberUserIds': memberUserIds,
+          if (avatarUrl != null && avatarUrl.isNotEmpty) 'avatarUrl': avatarUrl,
+        },
+      );
+      if (response is Map<String, dynamic>) {
+        final group = ConversationModel.fromJson(response);
+        _conversations.insert(0, group);
+        _sortConversations();
+        notifyListeners();
+        return group;
+      }
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+    return null;
+  }
+
+  Future<void> togglePin(String conversationId) async {
+    try {
+      final response = await _apiClient.post('/conversations/$conversationId/pin');
+      if (response is Map<String, dynamic> && response['isPinned'] != null) {
+        final isPinned = response['isPinned'] == true;
+        final idx = _conversations.indexWhere((c) => c.conversationId == conversationId);
+        if (idx != -1) {
+          _conversations[idx] = _conversations[idx].copyWith(isPinned: isPinned);
+          _sortConversations();
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
 
   Future<void> enterConversation(String conversationId) async {
     _activeConversationId = conversationId;
@@ -377,6 +432,26 @@ class ChatProvider extends ChangeNotifier {
     final isCurrentActive = _activeConversationId == convId;
     _updateConversationLastMessage(convId, message, incrementUnread: !isCurrentActive);
 
+    if (!isCurrentActive) {
+      final convMatches = _conversations.where((c) => c.conversationId == convId);
+      final ConversationModel? conv = convMatches.isNotEmpty ? convMatches.first : null;
+
+      final String senderTitle;
+      if (conv != null && conv.type == ConversationType.group) {
+        senderTitle = '${conv.title} (${message.senderUsername})';
+      } else if (conv != null) {
+        senderTitle = conv.title;
+      } else {
+        senderTitle = message.senderUsername;
+      }
+
+      NotificationService.instance.showMessageNotification(
+        title: senderTitle,
+        body: message.content,
+        conversationId: convId,
+      );
+    }
+
     markMessageDelivered(message.id, convId);
     if (isCurrentActive) {
       markConversationAsRead(convId);
@@ -571,6 +646,7 @@ class ChatProvider extends ChangeNotifier {
     } else {
       _conversations.insert(0, conversation);
     }
+    _sortConversations();
     notifyListeners();
   }
 
@@ -584,10 +660,11 @@ class ChatProvider extends ChangeNotifier {
         updatedAtUtc: message.createdAtUtc,
         unreadCount: unread,
       );
-      _conversations.removeAt(idx);
-      _conversations.insert(0, updated);
+      _conversations[idx] = updated;
+      _sortConversations();
     }
   }
+
 
   @override
   void dispose() {

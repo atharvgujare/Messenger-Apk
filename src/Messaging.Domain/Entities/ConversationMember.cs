@@ -8,6 +8,8 @@ public class ConversationMember
     public bool IsMuted { get; set; } = false;
     public bool IsPinned { get; set; } = false;
     public bool IsArchived { get; set; } = false;
+    public bool IsAdmin { get; set; } = false;
+
     public Guid? LastReadMessageId { get; set; }
     public DateTime? LastReadAtUtc { get; set; }
 

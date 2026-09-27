@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<MessageReaction> MessageReactions => Set<MessageReaction>();
     public DbSet<MessageUserDeletion> MessageUserDeletions => Set<MessageUserDeletion>();
+    public DbSet<EmailVerificationOtp> EmailVerificationOtps => Set<EmailVerificationOtp>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -211,5 +212,22 @@ public class AppDbContext : DbContext
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
+
+        // EmailVerificationOtp Configuration
+        modelBuilder.Entity<EmailVerificationOtp>(entity =>
+        {
+            entity.HasKey(o => o.Id);
+
+            entity.Property(o => o.Email)
+                .IsRequired()
+                .HasMaxLength(256);
+
+            entity.Property(o => o.OtpCode)
+                .IsRequired()
+                .HasMaxLength(10);
+
+            entity.HasIndex(o => new { o.Email, o.ExpiresAtUtc, o.IsUsed });
+        });
     }
 }
+

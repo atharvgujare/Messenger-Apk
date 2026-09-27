@@ -113,8 +113,36 @@ public class UserRepository : IUserRepository
         }
     }
 
+    public async Task SaveOtpAsync(EmailVerificationOtp otp, CancellationToken ct = default)
+    {
+        await _context.EmailVerificationOtps.AddAsync(otp, ct);
+    }
+
+    public async Task<EmailVerificationOtp?> GetValidOtpAsync(string email, string code, CancellationToken ct = default)
+    {
+        var sanitized = email.Trim().ToLowerInvariant();
+        return await _context.EmailVerificationOtps
+            .Where(o => o.Email == sanitized && o.OtpCode == code && !o.IsUsed && o.ExpiresAtUtc > DateTime.UtcNow)
+            .OrderByDescending(o => o.CreatedAtUtc)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task InvalidateOtpsForEmailAsync(string email, CancellationToken ct = default)
+    {
+        var sanitized = email.Trim().ToLowerInvariant();
+        var pending = await _context.EmailVerificationOtps
+            .Where(o => o.Email == sanitized && !o.IsUsed)
+            .ToListAsync(ct);
+
+        foreach (var otp in pending)
+        {
+            otp.IsUsed = true;
+        }
+    }
+
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {
         await _context.SaveChangesAsync(ct);
     }
 }
+

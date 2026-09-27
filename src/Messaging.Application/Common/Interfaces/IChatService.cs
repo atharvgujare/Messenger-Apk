@@ -56,4 +56,15 @@ public interface IChatService
         Guid userId, 
         string emoji, 
         CancellationToken ct = default);
+
+    Task<ConversationDto> CreateGroupConversationAsync(
+        Guid creatorUserId, 
+        CreateGroupRequest request, 
+        CancellationToken ct = default);
+
+    Task<bool> TogglePinConversationAsync(
+        Guid conversationId, 
+        Guid userId, 
+        CancellationToken ct = default);
 }
+

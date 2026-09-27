@@ -17,5 +17,9 @@ public interface IUserRepository
     Task UpdateUserAsync(User user, CancellationToken ct = default);
     Task UpdateSessionAsync(UserSession session, CancellationToken ct = default);
     Task RevokeAllUserSessionsAsync(Guid userId, CancellationToken ct = default);
+    Task SaveOtpAsync(EmailVerificationOtp otp, CancellationToken ct = default);
+    Task<EmailVerificationOtp?> GetValidOtpAsync(string email, string code, CancellationToken ct = default);
+    Task InvalidateOtpsForEmailAsync(string email, CancellationToken ct = default);
     Task SaveChangesAsync(CancellationToken ct = default);
 }
+

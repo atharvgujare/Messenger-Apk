@@ -14,8 +14,12 @@ import 'features/users/services/user_api_service.dart';
 import 'core/network/signalr_service.dart';
 import 'features/chats/providers/chat_provider.dart';
 
+import 'core/theme/theme_provider.dart';
+import 'core/services/notification_service.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.instance.initialize();
 
   // Initialize Core Services
   final localStorage = await LocalStorage.create();
@@ -26,6 +30,7 @@ void main() async {
   final userSearchProvider = UserSearchProvider(userApiService);
   final signalRService = SignalRService(localStorage);
   final chatProvider = ChatProvider(apiClient, signalRService, authProvider);
+  final themeProvider = ThemeProvider();
 
   // Attempt auto-login with stored tokens
   await authProvider.tryAutoLogin();
@@ -38,6 +43,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider<ThemeProvider>.value(value: themeProvider),
         ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
         ChangeNotifierProvider<UserSearchProvider>.value(value: userSearchProvider),
         ChangeNotifierProvider<ChatProvider>.value(value: chatProvider),
@@ -52,12 +58,15 @@ class MessengerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+
     return MaterialApp(
       title: AppConfig.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: themeProvider.themeMode,
+
       home: Consumer<AuthProvider>(
         builder: (context, auth, _) {
           if (!auth.isInitialized && auth.isLoading) {

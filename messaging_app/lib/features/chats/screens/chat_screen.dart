@@ -557,6 +557,9 @@ class _ChatScreenState extends State<ChatScreen> {
     final timeStr = DateFormat('h:mm a').format(message.createdAtUtc);
     final isDeleted = message.isDeletedForEveryone;
 
+    final isDark = theme.brightness == Brightness.dark;
+    final isGroup = widget.conversation.type == ConversationType.group;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Column(
@@ -572,11 +575,15 @@ class _ChatScreenState extends State<ChatScreen> {
                   constraints: BoxConstraints(
                     maxWidth: MediaQuery.of(context).size.width * 0.78,
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
                     color: isDeleted
-                        ? (isMe ? theme.colorScheme.primary.withAlpha(160) : Colors.grey.withAlpha(60))
-                        : (isMe ? theme.colorScheme.primary : (theme.cardTheme.color ?? theme.colorScheme.surface)),
+                        ? (isMe
+                            ? (isDark ? AppTheme.darkBubbleMine.withAlpha(150) : AppTheme.lightBubbleMine.withAlpha(150))
+                            : (isDark ? AppTheme.darkBubbleOther.withAlpha(150) : Colors.grey.withAlpha(50)))
+                        : (isMe
+                            ? (isDark ? AppTheme.darkBubbleMine : AppTheme.lightBubbleMine)
+                            : (isDark ? AppTheme.darkBubbleOther : AppTheme.lightBubbleOther)),
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(16),
                       topRight: const Radius.circular(16),
@@ -585,18 +592,33 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withAlpha(10),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
+                        color: Colors.black.withAlpha(12),
+                        blurRadius: 3,
+                        offset: const Offset(0, 1),
                       ),
                     ],
                   ),
                   child: Column(
                     crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                     children: [
+                      // Sender name for group chats
+                      if (isGroup && !isMe && !isDeleted)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4.0),
+                          child: Text(
+                            message.senderDisplayName.isNotEmpty ? message.senderDisplayName : message.senderUsername,
+                            style: TextStyle(
+                              color: _getSenderColor(message.senderId),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+
                       // Quoted Reply Preview
                       if (message.replyToMessageId != null && !isDeleted)
                         _buildQuotedReplyPreview(theme, message, isMe),
+
 
                       // Message Content
                       if (isDeleted)
@@ -623,11 +645,12 @@ class _ChatScreenState extends State<ChatScreen> {
                         Text(
                           message.content,
                           style: TextStyle(
-                            color: isMe ? Colors.white : (theme.textTheme.bodyMedium?.color ?? Colors.black),
+                            color: isDark ? Colors.white : const Color(0xFF111B21),
                             fontSize: 15,
                           ),
                         ),
                       const SizedBox(height: 4),
+
 
                       // Timestamp, Edited Tag & Status Icon
                       Row(
@@ -834,4 +857,19 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
+
+  Color _getSenderColor(String senderId) {
+    const colors = [
+      Color(0xFFE542A3),
+      Color(0xFF1F7A8C),
+      Color(0xFFD97706),
+      Color(0xFF25D366),
+      Color(0xFF8B5CF6),
+      Color(0xFFEC4899),
+      Color(0xFF06B6D4),
+    ];
+    final hash = senderId.hashCode.abs();
+    return colors[hash % colors.length];
+  }
 }
+

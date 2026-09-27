@@ -103,7 +103,7 @@ public class UserService : IUserService
 
         profile.DisplayName = request.DisplayName.Trim();
         if (request.Bio != null) profile.Bio = request.Bio.Trim();
-        if (request.AvatarUrl != null) profile.AvatarUrl = request.AvatarUrl.Trim();
+        if (request.AvatarUrl != null) profile.AvatarUrl = string.IsNullOrWhiteSpace(request.AvatarUrl) ? null : request.AvatarUrl.Trim();
         if (request.LastSeenPrivacy.HasValue) profile.LastSeenPrivacy = request.LastSeenPrivacy.Value;
         if (request.AvatarPrivacy.HasValue) profile.AvatarPrivacy = request.AvatarPrivacy.Value;
         if (request.ReadReceiptsEnabled.HasValue) profile.ReadReceiptsEnabled = request.ReadReceiptsEnabled.Value;

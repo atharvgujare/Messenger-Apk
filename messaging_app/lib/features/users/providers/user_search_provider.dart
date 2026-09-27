@@ -15,11 +15,15 @@ class UserSearchProvider extends ChangeNotifier {
   UserSearchProvider(this._apiService);
 
   List<UserSearchResultModel> get results => _results;
+  List<UserSearchResultModel> get searchResults => _results;
   bool get isLoading => _isLoading;
   String get currentQuery => _currentQuery;
   String? get errorMessage => _errorMessage;
 
+  void searchUsers(String query) => onQueryChanged(query);
+
   void onQueryChanged(String query) {
+
     _currentQuery = query;
     _debounce?.cancel();
 

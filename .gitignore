@@ -9,6 +9,7 @@
 *.suo
 *.userprefs
 appsettings.Local.json
+appsettings.Development.json
 *.db
 *.sqlite
 

@@ -102,6 +102,16 @@ public class UsersController : ControllerBase
         return Ok(updated);
     }
 
+    [HttpDelete("me")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> DeleteAccount(CancellationToken ct)
+    {
+        var currentUserId = GetCurrentUserId();
+        await _userService.DeleteAccountPermanentlyAsync(currentUserId, ct);
+        return Ok(new { message = "Account permanently deleted successfully." });
+    }
+
     private Guid GetCurrentUserId()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

@@ -473,8 +473,90 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 24),
+            const Divider(height: 1),
+
+            // Danger Zone: Delete Account
+            ListTile(
+              leading: const Icon(Icons.delete_forever_rounded, size: 28, color: Colors.red),
+              title: const Text(
+                'Delete Account',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.red,
+                ),
+              ),
+              subtitle: Text(
+                'Permanently delete your account and all data',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                ),
+              ),
+              onTap: () => _confirmDeleteAccount(context),
+            ),
+            const SizedBox(height: 32),
           ],
         ),
+      ),
+    );
+  }
+
+  void _confirmDeleteAccount(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+            SizedBox(width: 8),
+            Text('Delete Account?'),
+          ],
+        ),
+        content: const Text(
+          'This action is permanent and cannot be undone.\n\n'
+          'All your messages, conversations, and profile details will be permanently deleted from the database.',
+          style: TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final auth = context.read<AuthProvider>();
+              final messenger = ScaffoldMessenger.of(context);
+              final navigator = Navigator.of(context);
+
+              final success = await auth.deleteAccount();
+              if (success) {
+                navigator.popUntil((route) => route.isFirst);
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Account permanently deleted.'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              } else {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(auth.errorMessage ?? 'Failed to delete account.'),
+                    backgroundColor: Colors.red,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            },
+            child: const Text('Delete Permanently'),
+          ),
+        ],
       ),
     );
   }

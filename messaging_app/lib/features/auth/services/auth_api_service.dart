@@ -135,5 +135,9 @@ class AuthApiService {
     );
     return UserProfileModel.fromJson(response);
   }
+
+  Future<void> deleteAccount() async {
+    await _client.delete('/users/me');
+  }
 }
 

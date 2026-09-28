@@ -3,10 +3,20 @@ using Messaging.Api.Hubs;
 using Messaging.Api.Middlewares;
 using Messaging.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Render dynamic PORT binding (if PORT is set by Render)
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrEmpty(port))
+{
+    builder.WebHost.UseUrls($"http://+:{port}");
+}
 
 // 1. Add Infrastructure Services (EF Core, Repositories, AuthService, PasswordHasher, TokenService)
 builder.Services.AddInfrastructureServices(builder.Configuration);
@@ -112,12 +122,47 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
+
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseCors("AllowAll");
 app.UseStaticFiles();
 
-if (app.Environment.IsDevelopment())
+// Auto-migrate or ensure database exists on startup (crucial for Docker / Render)
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<Messaging.Infrastructure.Data.AppDbContext>();
+        if (context.Database.IsSqlite())
+        {
+            context.Database.EnsureCreated();
+        }
+        else
+        {
+            try
+            {
+                context.Database.Migrate();
+            }
+            catch
+            {
+                context.Database.EnsureCreated();
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogWarning(ex, "Database migration/initialization notice.");
+    }
+}
+
+if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("EnableSwagger", true))
 {
     app.UseSwagger();
     app.UseSwaggerUI(c =>
@@ -129,6 +174,14 @@ if (app.Environment.IsDevelopment())
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Render Health Check endpoint
+app.MapGet("/health", () => Results.Ok(new 
+{ 
+    status = "healthy", 
+    service = "Messenger API",
+    timestamp = DateTime.UtcNow 
+}));
 
 app.MapControllers();
 app.MapHub<ChatHub>("/hubs/chat");

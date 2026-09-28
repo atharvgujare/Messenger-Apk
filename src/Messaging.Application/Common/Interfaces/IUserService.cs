@@ -20,4 +20,8 @@ public interface IUserService
         Guid userId, 
         UpdateProfileRequest request, 
         CancellationToken ct = default);
+
+    Task DeleteAccountPermanentlyAsync(
+        Guid userId, 
+        CancellationToken ct = default);
 }

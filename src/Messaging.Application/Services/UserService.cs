@@ -131,4 +131,15 @@ public class UserService : IUserService
             TypingIndicatorEnabled = profile.TypingIndicatorEnabled
         };
     }
+
+    public async Task DeleteAccountPermanentlyAsync(Guid userId, CancellationToken ct = default)
+    {
+        var user = await _userRepository.GetByIdAsync(userId, ct);
+        if (user == null)
+        {
+            throw new NotFoundException("User not found.");
+        }
+
+        await _userRepository.DeleteUserPermanentlyAsync(userId, ct);
+    }
 }

@@ -19,9 +19,19 @@ services:
         value: "true"
       - key: ConnectionStrings__DefaultConnection
         value: "Data Source=/app/messenger.db"
-      - key: Jwt__SecretKey
+      - key: JwtSettings__Secret
         generateValue: true
-      - key: Jwt__Issuer
+      - key: JwtSettings__Issuer
         value: "MessengerApi"
-      - key: Jwt__Audience
+      - key: JwtSettings__Audience
         value: "MessengerClients"
+      - key: Smtp__Host
+        value: "smtp.gmail.com"
+      - key: Smtp__Port
+        value: "587"
+      - key: Smtp__Username
+        sync: false
+      - key: Smtp__Password
+        sync: false
+      - key: Smtp__FromEmail
+        sync: false

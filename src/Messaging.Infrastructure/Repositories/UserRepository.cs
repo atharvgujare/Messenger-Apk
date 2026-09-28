@@ -140,6 +140,104 @@ public class UserRepository : IUserRepository
         }
     }
 
+    public async Task DeleteUserPermanentlyAsync(Guid userId, CancellationToken ct = default)
+    {
+        var user = await _context.Users
+            .Include(u => u.Profile)
+            .FirstOrDefaultAsync(u => u.Id == userId, ct);
+
+        if (user == null) return;
+
+        // 1. Delete reactions by user
+        var reactions = await _context.MessageReactions
+            .Where(r => r.UserId == userId)
+            .ToListAsync(ct);
+        _context.MessageReactions.RemoveRange(reactions);
+
+        // 2. Delete message user deletions
+        var deletions = await _context.MessageUserDeletions
+            .Where(d => d.UserId == userId)
+            .ToListAsync(ct);
+        _context.MessageUserDeletions.RemoveRange(deletions);
+
+        // 3. Unlink conversations where LastMessage was sent by this user
+        var convsWithLastMessage = await _context.Conversations
+            .Where(c => c.LastMessage != null && c.LastMessage.SenderId == userId)
+            .ToListAsync(ct);
+        foreach (var conv in convsWithLastMessage)
+        {
+            conv.LastMessageId = null;
+        }
+
+        // 4. Unlink replies pointing to messages sent by this user
+        var userMessageIds = await _context.Messages
+            .Where(m => m.SenderId == userId)
+            .Select(m => m.Id)
+            .ToListAsync(ct);
+
+        if (userMessageIds.Count > 0)
+        {
+            var repliesToUser = await _context.Messages
+                .Where(m => m.ReplyToMessageId != null && userMessageIds.Contains(m.ReplyToMessageId.Value))
+                .ToListAsync(ct);
+            foreach (var reply in repliesToUser)
+            {
+                reply.ReplyToMessageId = null;
+            }
+
+            // 5. Delete all reactions on user's messages
+            var reactionsOnUserMsgs = await _context.MessageReactions
+                .Where(r => userMessageIds.Contains(r.MessageId))
+                .ToListAsync(ct);
+            _context.MessageReactions.RemoveRange(reactionsOnUserMsgs);
+
+            // 6. Delete all message user deletions on user's messages
+            var deletionsOnUserMsgs = await _context.MessageUserDeletions
+                .Where(d => userMessageIds.Contains(d.MessageId))
+                .ToListAsync(ct);
+            _context.MessageUserDeletions.RemoveRange(deletionsOnUserMsgs);
+
+            // 7. Delete messages sent by this user
+            var userMessages = await _context.Messages
+                .Where(m => m.SenderId == userId)
+                .ToListAsync(ct);
+            _context.Messages.RemoveRange(userMessages);
+        }
+
+        // 8. Delete conversation memberships
+        var memberships = await _context.ConversationMembers
+            .Where(m => m.UserId == userId)
+            .ToListAsync(ct);
+        _context.ConversationMembers.RemoveRange(memberships);
+
+        // 9. Delete user sessions
+        var sessions = await _context.UserSessions
+            .Where(s => s.UserId == userId)
+            .ToListAsync(ct);
+        _context.UserSessions.RemoveRange(sessions);
+
+        // 10. Delete pending OTPs
+        if (!string.IsNullOrWhiteSpace(user.Email))
+        {
+            var normalizedEmail = user.Email.Trim().ToLowerInvariant();
+            var otps = await _context.EmailVerificationOtps
+                .Where(o => o.Email == normalizedEmail)
+                .ToListAsync(ct);
+            _context.EmailVerificationOtps.RemoveRange(otps);
+        }
+
+        // 11. Delete profile
+        if (user.Profile != null)
+        {
+            _context.UserProfiles.Remove(user.Profile);
+        }
+
+        // 12. Delete user
+        _context.Users.Remove(user);
+
+        await _context.SaveChangesAsync(ct);
+    }
+
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {
         await _context.SaveChangesAsync(ct);

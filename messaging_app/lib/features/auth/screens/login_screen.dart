@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/config/app_config.dart';
 import '../providers/auth_provider.dart';
+import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -44,55 +44,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _showServerConfigDialog() {
-    final controller = TextEditingController(text: AppConfig.baseUrl);
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Server Configuration'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Specify the backend API host. Use:\n'
-              '• 10.0.2.2:5095 for Android Emulator\n'
-              '• localhost:5095 for Windows / Web / USB adb reverse\n'
-              '• 192.168.1.103:5095 for Physical Phone on Wi-Fi',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'Backend URL',
-                hintText: 'http://10.0.2.2:5095',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                AppConfig.baseUrl = controller.text.trim();
-              });
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Server URL set to: ${AppConfig.baseUrl}')),
-              );
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -110,28 +61,19 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // App Brand Logo & Name
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const SizedBox(width: 40),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withAlpha(25),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.chat_bubble_outline_rounded,
-                          size: 44,
-                          color: theme.colorScheme.primary,
-                        ),
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withAlpha(25),
+                        shape: BoxShape.circle,
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.settings_outlined),
-                        tooltip: 'Configure Server Host',
-                        onPressed: _showServerConfigDialog,
+                      child: Icon(
+                        Icons.chat_bubble_outline_rounded,
+                        size: 48,
+                        color: theme.colorScheme.primary,
                       ),
-                    ],
+                    ),
                   ),
                   const SizedBox(height: 20),
                   Text(
@@ -197,7 +139,35 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 8),
+
+                  // Forgot Password Button
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ForgotPasswordScreen(),
+                          ),
+                        );
+                      },
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      child: Text(
+                        'Forgot Password?',
+                        style: TextStyle(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
                   // Submit Button
                   ElevatedButton(

@@ -43,10 +43,42 @@ class ConversationModel {
     return title[0].toUpperCase();
   }
 
+  UserSearchResultModel? getOtherMember(String currentUserId) {
+    return otherParticipant;
+  }
+
+
+  static ConversationType _parseType(dynamic value) {
+    if (value is int) {
+      switch (value) {
+        case 1:
+          return ConversationType.direct;
+        case 2:
+          return ConversationType.group;
+        case 3:
+          return ConversationType.channel;
+        default:
+          return ConversationType.direct;
+      }
+    }
+    if (value is String) {
+      switch (value.toLowerCase()) {
+        case 'group':
+          return ConversationType.group;
+        case 'channel':
+        case 'savedmessages':
+          return ConversationType.channel;
+        default:
+          return ConversationType.direct;
+      }
+    }
+    return ConversationType.direct;
+  }
+
   factory ConversationModel.fromJson(Map<String, dynamic> json) {
     return ConversationModel(
       conversationId: json['conversationId']?.toString() ?? '',
-      type: ConversationType.values[(json['type'] as int?) ?? 0],
+      type: _parseType(json['type']),
       title: json['title']?.toString() ?? 'Conversation',
       avatarUrl: json['avatarUrl']?.toString(),
       isPinned: json['isPinned'] == true,

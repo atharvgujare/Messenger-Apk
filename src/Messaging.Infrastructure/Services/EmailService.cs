@@ -23,6 +23,48 @@ public class EmailService : IEmailService
 
     public async Task SendOtpEmailAsync(string toEmail, string otpCode, CancellationToken ct = default)
     {
+        var subject = $"Your Messenger Verification Code: {otpCode}";
+        var htmlBody = $@"
+<!DOCTYPE html>
+<html>
+<body style='font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;'>
+  <div style='max-width: 480px; margin: 0 auto; background: #ffffff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);'>
+    <h2 style='color: #00A884; margin-bottom: 8px;'>Messenger Verification</h2>
+    <p style='color: #555; font-size: 15px;'>Welcome! Use the one-time code below to verify your email address:</p>
+    <div style='background: #f0fdf4; border: 2px dashed #00A884; border-radius: 8px; padding: 18px; text-align: center; margin: 24px 0;'>
+      <span style='font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #111b21;'>{otpCode}</span>
+    </div>
+    <p style='color: #888; font-size: 13px;'>This code will expire in 10 minutes. If you did not request this, please ignore this email.</p>
+  </div>
+</body>
+</html>";
+
+        await SendHtmlEmailAsync(toEmail, subject, htmlBody, ct);
+    }
+
+    public async Task SendPasswordResetEmailAsync(string toEmail, string otpCode, CancellationToken ct = default)
+    {
+        var subject = $"Reset Your Messenger Password: {otpCode}";
+        var htmlBody = $@"
+<!DOCTYPE html>
+<html>
+<body style='font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;'>
+  <div style='max-width: 480px; margin: 0 auto; background: #ffffff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);'>
+    <h2 style='color: #00A884; margin-bottom: 8px;'>Password Reset Request</h2>
+    <p style='color: #555; font-size: 15px;'>We received a request to reset your Messenger account password. Use the verification code below:</p>
+    <div style='background: #f0fdf4; border: 2px dashed #00A884; border-radius: 8px; padding: 18px; text-align: center; margin: 24px 0;'>
+      <span style='font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #111b21;'>{otpCode}</span>
+    </div>
+    <p style='color: #888; font-size: 13px;'>This code will expire in 10 minutes. If you did not request a password reset, please secure your account immediately.</p>
+  </div>
+</body>
+</html>";
+
+        await SendHtmlEmailAsync(toEmail, subject, htmlBody, ct);
+    }
+
+    private async Task SendHtmlEmailAsync(string toEmail, string subject, string htmlBody, CancellationToken ct)
+    {
         var smtpHost = _configuration["Smtp:Host"] 
             ?? Environment.GetEnvironmentVariable("SMTP_HOST") 
             ?? "smtp.gmail.com";
@@ -44,25 +86,10 @@ public class EmailService : IEmailService
             ?? "atharvgujare.riyality@gmail.com";
 
         _logger.LogInformation("=================================================");
-        _logger.LogInformation(">>> [EMAIL OTP VERIFICATION] <<<");
-        _logger.LogInformation(">>> Recipient: {Email}", toEmail);
-        _logger.LogInformation(">>> Verification Code: {Code}", otpCode);
+        _logger.LogInformation(">>> [DISPATCHING EMAIL] <<<");
+        _logger.LogInformation(">>> To: {Email}", toEmail);
+        _logger.LogInformation(">>> Subject: {Subject}", subject);
         _logger.LogInformation("=================================================");
-
-        var htmlBody = $@"
-<!DOCTYPE html>
-<html>
-<body style='font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;'>
-  <div style='max-width: 480px; margin: 0 auto; background: #ffffff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);'>
-    <h2 style='color: #00A884; margin-bottom: 8px;'>Messenger Verification</h2>
-    <p style='color: #555; font-size: 15px;'>Welcome! Use the one-time code below to verify your email address:</p>
-    <div style='background: #f0fdf4; border: 2px dashed #00A884; border-radius: 8px; padding: 18px; text-align: center; margin: 24px 0;'>
-      <span style='font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #111b21;'>{otpCode}</span>
-    </div>
-    <p style='color: #888; font-size: 13px;'>This code will expire in 10 minutes. If you did not request this, please ignore this email.</p>
-  </div>
-</body>
-</html>";
 
         // 1. Try Brevo REST API over HTTPS (port 443) if configured
         var brevoApiKey = _configuration["Brevo:ApiKey"] ?? Environment.GetEnvironmentVariable("BREVO_API_KEY");
@@ -76,7 +103,7 @@ public class EmailService : IEmailService
                 {
                     sender = new { name = "Messenger", email = fromEmail },
                     to = new[] { new { email = toEmail } },
-                    subject = $"Your Messenger Verification Code: {otpCode}",
+                    subject = subject,
                     htmlContent = htmlBody
                 };
                 request.Content = JsonContent.Create(payload);
@@ -107,7 +134,7 @@ public class EmailService : IEmailService
                 {
                     from = "Messenger <onboarding@resend.dev>",
                     to = new[] { toEmail },
-                    subject = $"Your Messenger Verification Code: {otpCode}",
+                    subject = subject,
                     html = htmlBody
                 };
                 request.Content = JsonContent.Create(payload);
@@ -140,7 +167,7 @@ public class EmailService : IEmailService
             var mail = new MailMessage
             {
                 From = new MailAddress(fromEmail, "Messenger"),
-                Subject = $"Your Messenger Verification Code: {otpCode}",
+                Subject = subject,
                 Body = htmlBody,
                 IsBodyHtml = true
             };

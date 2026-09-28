@@ -108,8 +108,37 @@ class AuthApiService {
     } catch (_) {}
   }
 
+  Future<void> forgotPassword(String email) async {
+    await _client.post(
+      '/auth/forgot-password',
+      includeAuth: false,
+      body: {'email': email},
+    );
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String otpCode,
+    required String newPassword,
+  }) async {
+    await _client.post(
+      '/auth/reset-password',
+      includeAuth: false,
+      body: {
+        'email': email,
+        'otpCode': otpCode,
+        'newPassword': newPassword,
+      },
+    );
+  }
+
   Future<UserProfileModel> getMe() async {
     final response = await _client.get(ApiEndpoints.me);
+    return UserProfileModel.fromJson(response);
+  }
+
+  Future<UserProfileModel> getUserProfile(String userId) async {
+    final response = await _client.get('/users/$userId');
     return UserProfileModel.fromJson(response);
   }
 
@@ -117,11 +146,13 @@ class AuthApiService {
     String? displayName,
     String? bio,
     String? avatarUrl,
+    bool? isPrivate,
   }) async {
     final body = <String, dynamic>{};
     if (displayName != null) body['displayName'] = displayName;
     if (bio != null) body['bio'] = bio;
     if (avatarUrl != null) body['avatarUrl'] = avatarUrl;
+    if (isPrivate != null) body['isPrivate'] = isPrivate;
 
     final response = await _client.put(
       ApiEndpoints.profile,
@@ -142,6 +173,51 @@ class AuthApiService {
 
   Future<void> deleteAccount() async {
     await _client.delete('/users/me');
+  }
+
+  // Follow APIs
+  Future<Map<String, dynamic>> followUser(String targetUserId) async {
+    final response = await _client.post('/users/$targetUserId/follow');
+    return response as Map<String, dynamic>;
+  }
+
+  Future<bool> unfollowUser(String targetUserId) async {
+    final response = await _client.post('/users/$targetUserId/unfollow');
+    return response is Map<String, dynamic> && response['success'] == true;
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingFollowRequests() async {
+    final response = await _client.get('/users/follow-requests');
+    if (response is List) {
+      return List<Map<String, dynamic>>.from(response);
+    }
+    return [];
+  }
+
+  Future<bool> acceptFollowRequest(String requestId) async {
+    final response = await _client.post('/users/follow-requests/$requestId/accept');
+    return response is Map<String, dynamic> && response['success'] == true;
+  }
+
+  Future<bool> rejectFollowRequest(String requestId) async {
+    final response = await _client.post('/users/follow-requests/$requestId/reject');
+    return response is Map<String, dynamic> && response['success'] == true;
+  }
+
+  Future<List<Map<String, dynamic>>> getFollowers(String userId) async {
+    final response = await _client.get('/users/$userId/followers');
+    if (response is List) {
+      return List<Map<String, dynamic>>.from(response);
+    }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getFollowing(String userId) async {
+    final response = await _client.get('/users/$userId/following');
+    if (response is List) {
+      return List<Map<String, dynamic>>.from(response);
+    }
+    return [];
   }
 }
 

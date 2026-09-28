@@ -87,7 +87,10 @@ public class UsersController : ControllerBase
             await file.CopyToAsync(stream, ct);
         }
 
-        var requestBase = $"{Request.Scheme}://{Request.Host}";
+        var scheme = Request.Headers.TryGetValue("X-Forwarded-Proto", out var proto) && !string.IsNullOrWhiteSpace(proto)
+            ? proto.ToString()
+            : (Request.Host.Host.Contains("onrender.com") || !Request.Host.Host.Contains("localhost") ? "https" : Request.Scheme);
+        var requestBase = $"{scheme}://{Request.Host}";
         var avatarUrl = $"{requestBase}/avatars/{uniqueFileName}";
 
         var currentProfile = await _userService.GetProfileByIdAsync(currentUserId, currentUserId, ct);
@@ -111,6 +114,68 @@ public class UsersController : ControllerBase
         await _userService.DeleteAccountPermanentlyAsync(currentUserId, ct);
         return Ok(new { message = "Account permanently deleted successfully." });
     }
+
+    [HttpPost("{id:guid}/follow")]
+    [ProducesResponseType(typeof(FollowResponseDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> FollowUser(Guid id, CancellationToken ct)
+    {
+        var currentUserId = GetCurrentUserId();
+        var result = await _userService.FollowUserAsync(currentUserId, id, ct);
+        return Ok(result);
+    }
+
+    [HttpPost("{id:guid}/unfollow")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> UnfollowUser(Guid id, CancellationToken ct)
+    {
+        var currentUserId = GetCurrentUserId();
+        var result = await _userService.UnfollowUserAsync(currentUserId, id, ct);
+        return Ok(new { success = result });
+    }
+
+    [HttpGet("follow-requests")]
+    [ProducesResponseType(typeof(IReadOnlyList<FollowRequestDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPendingFollowRequests(CancellationToken ct)
+    {
+        var currentUserId = GetCurrentUserId();
+        var requests = await _userService.GetPendingFollowRequestsAsync(currentUserId, ct);
+        return Ok(requests);
+    }
+
+    [HttpPost("follow-requests/{id:guid}/accept")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> AcceptFollowRequest(Guid id, CancellationToken ct)
+    {
+        var currentUserId = GetCurrentUserId();
+        var result = await _userService.AcceptFollowRequestAsync(currentUserId, id, ct);
+        return Ok(new { success = result });
+    }
+
+    [HttpPost("follow-requests/{id:guid}/reject")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> RejectFollowRequest(Guid id, CancellationToken ct)
+    {
+        var currentUserId = GetCurrentUserId();
+        var result = await _userService.RejectFollowRequestAsync(currentUserId, id, ct);
+        return Ok(new { success = result });
+    }
+
+    [HttpGet("{id:guid}/followers")]
+    [ProducesResponseType(typeof(IReadOnlyList<FollowUserDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetFollowers(Guid id, CancellationToken ct)
+    {
+        var followers = await _userService.GetFollowersAsync(id, ct);
+        return Ok(followers);
+    }
+
+    [HttpGet("{id:guid}/following")]
+    [ProducesResponseType(typeof(IReadOnlyList<FollowUserDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetFollowing(Guid id, CancellationToken ct)
+    {
+        var following = await _userService.GetFollowingAsync(id, ct);
+        return Ok(following);
+    }
+
 
     private Guid GetCurrentUserId()
     {

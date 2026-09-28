@@ -7,6 +7,10 @@ class UserProfileModel {
   final String? avatarUrl;
   final bool isOnline;
   final DateTime? lastSeenAtUtc;
+  final bool isPrivate;
+  final int followersCount;
+  final int followingCount;
+  final String? followStatus;
 
   UserProfileModel({
     required this.userId,
@@ -17,6 +21,10 @@ class UserProfileModel {
     this.avatarUrl,
     required this.isOnline,
     this.lastSeenAtUtc,
+    this.isPrivate = false,
+    this.followersCount = 0,
+    this.followingCount = 0,
+    this.followStatus,
   });
 
   factory UserProfileModel.fromJson(Map<String, dynamic> json) {
@@ -31,6 +39,10 @@ class UserProfileModel {
       lastSeenAtUtc: json['lastSeenAtUtc'] != null 
           ? DateTime.tryParse(json['lastSeenAtUtc']) 
           : null,
+      isPrivate: json['isPrivate'] ?? false,
+      followersCount: json['followersCount'] ?? 0,
+      followingCount: json['followingCount'] ?? 0,
+      followStatus: json['followStatus'],
     );
   }
 
@@ -43,6 +55,10 @@ class UserProfileModel {
     'avatarUrl': avatarUrl,
     'isOnline': isOnline,
     'lastSeenAtUtc': lastSeenAtUtc?.toIso8601String(),
+    'isPrivate': isPrivate,
+    'followersCount': followersCount,
+    'followingCount': followingCount,
+    'followStatus': followStatus,
   };
 }
 

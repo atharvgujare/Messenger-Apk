@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../snaps/screens/create_snap_screen.dart';
 import '../models/conversation_model.dart';
 import '../models/message_model.dart';
 import '../providers/chat_provider.dart';
@@ -352,6 +353,26 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ],
           ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.camera_alt_outlined, color: Colors.amber),
+              tooltip: 'Send Snap 🔥',
+              onPressed: () {
+                final auth = context.read<AuthProvider>();
+                final currentUserId = auth.currentUser?.userId ?? '';
+                final other = widget.conversation.getOtherMember(currentUserId);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CreateSnapScreen(
+                      targetRecipientId: other?.userId,
+                      targetRecipientName: other?.displayName ?? other?.username,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
         body: SafeArea(
           child: Column(
@@ -402,7 +423,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       itemCount: messages.length,
                       itemBuilder: (context, index) {
                         final msg = messages[index];
-                        final isMe = (currentUserId.isNotEmpty && msg.senderId.trim().toLowerCase() == currentUserId) ||
+                        final isMe = msg.status == MessageStatus.pending ||
+                                     (currentUserId.isNotEmpty && msg.senderId.trim().toLowerCase() == currentUserId) ||
                                      (currentUsername.isNotEmpty && msg.senderUsername.trim().toLowerCase() == currentUsername);
                         return _buildMessageBubble(context, theme, msg, isMe, provider);
                       },

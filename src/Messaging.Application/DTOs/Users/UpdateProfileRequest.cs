@@ -19,4 +19,5 @@ public class UpdateProfileRequest
     public PrivacyLevel? AvatarPrivacy { get; set; }
     public bool? ReadReceiptsEnabled { get; set; }
     public bool? TypingIndicatorEnabled { get; set; }
+    public bool? IsPrivate { get; set; }
 }

@@ -17,4 +17,8 @@ public class UserProfileDto
     public PrivacyLevel AvatarPrivacy { get; set; }
     public bool ReadReceiptsEnabled { get; set; }
     public bool TypingIndicatorEnabled { get; set; }
+    public bool IsPrivate { get; set; }
+    public int FollowersCount { get; set; }
+    public int FollowingCount { get; set; }
+    public string? FollowStatus { get; set; }
 }

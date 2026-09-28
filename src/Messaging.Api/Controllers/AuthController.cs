@@ -24,12 +24,27 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> SendOtp([FromBody] SendOtpRequest request, CancellationToken ct)
     {
-        var code = await _authService.SendOtpAsync(request.Email, ct);
-        return Ok(new 
-        { 
-            message = "Verification OTP has been generated.",
-            otpCode = code
-        });
+        await _authService.SendOtpAsync(request.Email, ct);
+        return Ok(new { message = "Verification code has been dispatched to your email inbox." });
+    }
+
+    [HttpPost("forgot-password")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken ct)
+    {
+        await _authService.ForgotPasswordAsync(request.Email, ct);
+        return Ok(new { message = "Password reset code has been sent to your registered email." });
+    }
+
+    [HttpPost("reset-password")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request, CancellationToken ct)
+    {
+        await _authService.ResetPasswordAsync(request, ct);
+        return Ok(new { message = "Your password has been successfully reset. You can now log in with your new password." });
     }
 
     [HttpPost("verify-otp")]

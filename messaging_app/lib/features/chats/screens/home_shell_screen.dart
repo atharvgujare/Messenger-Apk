@@ -13,6 +13,9 @@ import 'create_group_screen.dart';
 import 'settings_screen.dart';
 import 'user_profile_screen.dart';
 import '../../../core/services/notification_service.dart';
+import '../../snaps/providers/snap_provider.dart';
+import '../../snaps/screens/create_snap_screen.dart';
+import '../../snaps/screens/view_snap_screen.dart';
 
 class HomeShellScreen extends StatefulWidget {
   const HomeShellScreen({super.key});
@@ -186,6 +189,7 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final chatProvider = context.watch<ChatProvider>();
+    final snapProvider = context.watch<SnapProvider>();
 
     return Scaffold(
       // 1. WhatsApp Top Header
@@ -211,8 +215,13 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.camera_alt_outlined, size: 24),
-            tooltip: 'Camera',
-            onPressed: () {},
+            tooltip: 'Send Snap 🔥',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CreateSnapScreen()),
+              );
+            },
           ),
           IconButton(
             icon: const Icon(Icons.search, size: 24),
@@ -329,6 +338,9 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
               ),
             ),
           ),
+
+          // 2.5. Ephemeral Snaps & Streaks Tray (Snapchat style)
+          _buildSnapsTray(snapProvider, isDark),
 
           // 3. Filter Chips (All, Unread, Favourites, Groups)
           SingleChildScrollView(
@@ -706,4 +718,110 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
     }
   }
 
+  Widget _buildSnapsTray(SnapProvider snapProvider, bool isDark) {
+    final snaps = snapProvider.activeSnaps;
+
+    return Container(
+      height: 92,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: 1 + snaps.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 14),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            // New Snap button
+            return InkWell(
+              borderRadius: BorderRadius.circular(35),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CreateSnapScreen()),
+                );
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 26,
+                        backgroundColor: isDark ? AppTheme.darkSearchBar : Colors.grey[200],
+                        child: const Icon(Icons.camera_alt, color: AppTheme.whatsappGreen),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(
+                            color: AppTheme.whatsappGreen,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.add, size: 14, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text('New Snap', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            );
+          }
+
+          final snap = snaps[index - 1];
+          return InkWell(
+            borderRadius: BorderRadius.circular(35),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => ViewSnapScreen(snap: snap)),
+              );
+            },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(2.5),
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [Colors.deepOrange, Colors.purpleAccent, Colors.amber],
+                    ),
+                  ),
+                  child: CircleAvatar(
+                    radius: 24,
+                    backgroundColor: Colors.black,
+                    backgroundImage: (snap.senderAvatarUrl != null && snap.senderAvatarUrl!.isNotEmpty)
+                        ? NetworkImage(snap.senderAvatarUrl!)
+                        : null,
+                    child: (snap.senderAvatarUrl == null || snap.senderAvatarUrl!.isEmpty)
+                        ? Text(
+                            snap.senderDisplayName.isNotEmpty ? snap.senderDisplayName[0].toUpperCase() : '?',
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                          )
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                SizedBox(
+                  width: 58,
+                  child: Text(
+                    snap.senderDisplayName,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
 }
+

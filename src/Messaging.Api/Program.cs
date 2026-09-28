@@ -144,6 +144,60 @@ using (var scope = app.Services.CreateScope())
         if (context.Database.IsSqlite())
         {
             context.Database.EnsureCreated();
+
+            // Safe schema migrations for SQLite databases created prior to new feature additions
+            try
+            {
+                context.Database.ExecuteSqlRaw(@"
+                    CREATE TABLE IF NOT EXISTS ""UserFollows"" (
+                        ""Id"" TEXT NOT NULL CONSTRAINT ""PK_UserFollows"" PRIMARY KEY,
+                        ""FollowerId"" TEXT NOT NULL,
+                        ""FolloweeId"" TEXT NOT NULL,
+                        ""Status"" INTEGER NOT NULL,
+                        ""CreatedAtUtc"" TEXT NOT NULL,
+                        CONSTRAINT ""FK_UserFollows_Users_FolloweeId"" FOREIGN KEY (""FolloweeId"") REFERENCES ""Users"" (""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_UserFollows_Users_FollowerId"" FOREIGN KEY (""FollowerId"") REFERENCES ""Users"" (""Id"") ON DELETE CASCADE
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_UserFollows_FolloweeId"" ON ""UserFollows"" (""FolloweeId"");
+                    CREATE INDEX IF NOT EXISTS ""IX_UserFollows_FollowerId_FolloweeId"" ON ""UserFollows"" (""FollowerId"", ""FolloweeId"");
+
+                    CREATE TABLE IF NOT EXISTS ""Snaps"" (
+                        ""Id"" TEXT NOT NULL CONSTRAINT ""PK_Snaps"" PRIMARY KEY,
+                        ""SenderId"" TEXT NOT NULL,
+                        ""RecipientId"" TEXT NOT NULL,
+                        ""MediaUrl"" TEXT NOT NULL,
+                        ""Caption"" TEXT NULL,
+                        ""TimerSeconds"" INTEGER NOT NULL,
+                        ""IsViewOnce"" INTEGER NOT NULL,
+                        ""CreatedAtUtc"" TEXT NOT NULL,
+                        ""ExpiresAtUtc"" TEXT NOT NULL,
+                        ""OpenedAtUtc"" TEXT NULL,
+                        ""IsOpened"" INTEGER NOT NULL,
+                        CONSTRAINT ""FK_Snaps_Users_RecipientId"" FOREIGN KEY (""RecipientId"") REFERENCES ""Users"" (""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_Snaps_Users_SenderId"" FOREIGN KEY (""SenderId"") REFERENCES ""Users"" (""Id"") ON DELETE CASCADE
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_Snaps_RecipientId"" ON ""Snaps"" (""RecipientId"");
+                    CREATE INDEX IF NOT EXISTS ""IX_Snaps_SenderId"" ON ""Snaps"" (""SenderId"");
+
+                    CREATE TABLE IF NOT EXISTS ""SnapStreaks"" (
+                        ""Id"" TEXT NOT NULL CONSTRAINT ""PK_SnapStreaks"" PRIMARY KEY,
+                        ""User1Id"" TEXT NOT NULL,
+                        ""User2Id"" TEXT NOT NULL,
+                        ""StreakCount"" INTEGER NOT NULL,
+                        ""LastSnapUser1Utc"" TEXT NULL,
+                        ""LastSnapUser2Utc"" TEXT NULL,
+                        ""LastStreakIncrementUtc"" TEXT NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_SnapStreaks_User1Id_User2Id"" ON ""SnapStreaks"" (""User1Id"", ""User2Id"");
+                ");
+
+                try
+                {
+                    context.Database.ExecuteSqlRaw(@"ALTER TABLE ""UserProfiles"" ADD COLUMN ""IsPrivate"" INTEGER NOT NULL DEFAULT 0;");
+                }
+                catch { /* Column already exists */ }
+            }
+            catch { /* Migrations completed or already up to date */ }
         }
         else
         {

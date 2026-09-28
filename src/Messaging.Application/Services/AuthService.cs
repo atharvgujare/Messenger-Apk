@@ -217,7 +217,7 @@ public class AuthService : IAuthService
         return MapToProfileDto(user, profile);
     }
 
-    public async Task<string> SendOtpAsync(string email, CancellationToken ct = default)
+    public async Task SendOtpAsync(string email, CancellationToken ct = default)
     {
         var sanitizedEmail = email.Trim().ToLowerInvariant();
 
@@ -244,7 +244,7 @@ public class AuthService : IAuthService
         await _userRepository.SaveOtpAsync(otp, ct);
         await _userRepository.SaveChangesAsync(ct);
 
-        // Attempt sending email via SMTP/HTTP API without blocking if cloud firewall drops outbound SMTP
+        // Attempt sending email via Brevo/Resend HTTPS API or SMTP without blocking
         try
         {
             using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -253,11 +253,75 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
-            // Logged so verification code is still returned and usable even if cloud firewall blocks port 587
             System.Console.WriteLine($"[EMAIL NOTICE] Outbound email attempt notice: {ex.Message}");
         }
+    }
 
-        return otpCode;
+    public async Task ForgotPasswordAsync(string email, CancellationToken ct = default)
+    {
+        var sanitizedEmail = email.Trim().ToLowerInvariant();
+
+        var user = await _userRepository.GetByEmailAsync(sanitizedEmail, ct);
+        if (user == null || !user.IsActive)
+        {
+            throw new NotFoundException("No account found registered with this email address.");
+        }
+
+        // Invalidate old OTPs
+        await _userRepository.InvalidateOtpsForEmailAsync(sanitizedEmail, ct);
+
+        // Generate 6-digit OTP
+        var otpCode = Random.Shared.Next(100000, 999999).ToString();
+        var otp = new EmailVerificationOtp
+        {
+            Id = Guid.NewGuid(),
+            Email = sanitizedEmail,
+            OtpCode = otpCode,
+            CreatedAtUtc = DateTime.UtcNow,
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(10),
+            IsUsed = false
+        };
+
+        await _userRepository.SaveOtpAsync(otp, ct);
+        await _userRepository.SaveChangesAsync(ct);
+
+        try
+        {
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
+            await _emailService.SendPasswordResetEmailAsync(sanitizedEmail, otpCode, linkedCts.Token);
+        }
+        catch (Exception ex)
+        {
+            System.Console.WriteLine($"[PASSWORD RESET NOTICE] Outbound email notice: {ex.Message}");
+        }
+    }
+
+    public async Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct = default)
+    {
+        var sanitizedEmail = request.Email.Trim().ToLowerInvariant();
+
+        var otp = await _userRepository.GetValidOtpAsync(sanitizedEmail, request.OtpCode.Trim(), ct);
+        if (otp == null)
+        {
+            throw new ValidationException("OtpCode", "Invalid or expired password reset verification code.");
+        }
+
+        var user = await _userRepository.GetByEmailAsync(sanitizedEmail, ct);
+        if (user == null || !user.IsActive)
+        {
+            throw new NotFoundException("No user found with this email address.");
+        }
+
+        otp.IsUsed = true;
+        otp.UsedAtUtc = DateTime.UtcNow;
+
+        user.PasswordHash = _passwordHasher.HashPassword(request.NewPassword);
+        user.UpdatedAtUtc = DateTime.UtcNow;
+
+        await _userRepository.UpdateUserAsync(user, ct);
+        await _userRepository.RevokeAllUserSessionsAsync(user.Id, ct);
+        await _userRepository.SaveChangesAsync(ct);
     }
 
     public async Task<bool> VerifyOtpAsync(string email, string otpCode, CancellationToken ct = default)

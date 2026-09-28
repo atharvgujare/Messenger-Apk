@@ -21,6 +21,25 @@ public interface IUserRepository
     Task<EmailVerificationOtp?> GetValidOtpAsync(string email, string code, CancellationToken ct = default);
     Task InvalidateOtpsForEmailAsync(string email, CancellationToken ct = default);
     Task DeleteUserPermanentlyAsync(Guid userId, CancellationToken ct = default);
+    Task<bool> CanMessageUserAsync(Guid senderId, Guid recipientId, CancellationToken ct = default);
+    Task<UserFollow?> GetFollowAsync(Guid followerId, Guid followeeId, CancellationToken ct = default);
+    Task<UserFollow?> GetFollowRequestByIdAsync(Guid requestId, CancellationToken ct = default);
+    Task AddFollowAsync(UserFollow follow, CancellationToken ct = default);
+    Task UpdateFollowAsync(UserFollow follow, CancellationToken ct = default);
+    Task DeleteFollowAsync(UserFollow follow, CancellationToken ct = default);
+    Task<IReadOnlyList<UserFollow>> GetPendingFollowRequestsAsync(Guid userId, CancellationToken ct = default);
+    Task<IReadOnlyList<UserFollow>> GetFollowersAsync(Guid userId, CancellationToken ct = default);
+    Task<IReadOnlyList<UserFollow>> GetFollowingAsync(Guid userId, CancellationToken ct = default);
+    Task<int> GetFollowersCountAsync(Guid userId, CancellationToken ct = default);
+    Task<int> GetFollowingCountAsync(Guid userId, CancellationToken ct = default);
+
+    Task AddSnapAsync(Snap snap, CancellationToken ct = default);
+    Task<Snap?> GetSnapByIdAsync(Guid snapId, CancellationToken ct = default);
+    Task<IReadOnlyList<Snap>> GetActiveSnapsAsync(Guid recipientId, CancellationToken ct = default);
+    Task UpdateSnapAsync(Snap snap, CancellationToken ct = default);
+    Task<SnapStreak?> GetStreakAsync(Guid user1Id, Guid user2Id, CancellationToken ct = default);
+    Task AddOrUpdateStreakAsync(SnapStreak streak, CancellationToken ct = default);
+
     Task SaveChangesAsync(CancellationToken ct = default);
 }
 

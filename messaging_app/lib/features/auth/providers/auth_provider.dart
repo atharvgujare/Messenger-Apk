@@ -50,33 +50,43 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       if (_storage.hasSession) {
-        _currentUser ??= UserProfileModel(
+        _currentUser = UserProfileModel(
           userId: _storage.getUserId() ?? '',
           username: _storage.getUsername() ?? '',
           displayName: _storage.getDisplayName() ?? _storage.getUsername() ?? '',
           email: _storage.getEmail(),
           isOnline: true,
         );
-        // Try to fetch profile with existing access token
+
+        // Attempt silent profile sync / token refresh in background
         try {
           _currentUser = await _apiService.getMe();
-        } catch (_) {
-          // If token expired, try refreshing
-          final refreshToken = _storage.getRefreshToken();
-          if (refreshToken != null) {
-            final authResponse = await _apiService.refreshToken(refreshToken);
-            await _storage.saveTokens(
-              accessToken: authResponse.accessToken,
-              refreshToken: authResponse.refreshToken,
-            );
-            _currentUser = authResponse.profile;
-          } else {
-            await _storage.clearAll();
+        } catch (e) {
+          final errStr = e.toString().toLowerCase();
+          // Only refresh if explicitly an authentication / expired token issue
+          if (errStr.contains('401') || errStr.contains('unauthorized') || errStr.contains('token')) {
+            final refreshToken = _storage.getRefreshToken();
+            if (refreshToken != null) {
+              try {
+                final authResponse = await _apiService.refreshToken(refreshToken);
+                await _storage.saveTokens(
+                  accessToken: authResponse.accessToken,
+                  refreshToken: authResponse.refreshToken,
+                );
+                _currentUser = authResponse.profile;
+              } catch (refreshErr) {
+                // Only wipe tokens if refresh token is genuinely rejected as invalid/revoked
+                if (refreshErr.toString().toLowerCase().contains('401') || refreshErr.toString().toLowerCase().contains('invalid')) {
+                  await _storage.clearAll();
+                  _currentUser = null;
+                }
+              }
+            }
           }
         }
       }
     } catch (_) {
-      await _storage.clearAll();
+      // Keep existing session on transient errors
     } finally {
       _isLoading = false;
       _isInitialized = true;
@@ -236,10 +246,55 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> forgotPassword(String email) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _apiService.forgotPassword(email);
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> resetPassword({
+    required String email,
+    required String otpCode,
+    required String newPassword,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _apiService.resetPassword(
+        email: email,
+        otpCode: otpCode,
+        newPassword: newPassword,
+      );
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> updateProfile({
     String? displayName,
     String? bio,
     String? avatarUrl,
+    bool? isPrivate,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -250,6 +305,7 @@ class AuthProvider extends ChangeNotifier {
         displayName: displayName,
         bio: bio,
         avatarUrl: avatarUrl,
+        isPrivate: isPrivate,
       );
       _currentUser = updatedProfile;
       _isLoading = false;
@@ -262,6 +318,60 @@ class AuthProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  Future<Map<String, dynamic>> followUser(String targetUserId) async {
+    try {
+      return await _apiService.followUser(targetUserId);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<bool> unfollowUser(String targetUserId) async {
+    try {
+      return await _apiService.unfollowUser(targetUserId);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingFollowRequests() async {
+    try {
+      return await _apiService.getPendingFollowRequests();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<bool> acceptFollowRequest(String requestId) async {
+    try {
+      return await _apiService.acceptFollowRequest(requestId);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> rejectFollowRequest(String requestId) async {
+    try {
+      return await _apiService.rejectFollowRequest(requestId);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<UserProfileModel> getUserProfile(String userId) async {
+    return await _apiService.getUserProfile(userId);
+  }
+
+  Future<List<Map<String, dynamic>>> getFollowers(String userId) async {
+    return await _apiService.getFollowers(userId);
+  }
+
+  Future<List<Map<String, dynamic>>> getFollowing(String userId) async {
+    return await _apiService.getFollowing(userId);
+  }
+
+
 
   Future<bool> uploadAvatar(List<int> bytes, String filename) async {
     _isLoading = true;

@@ -3,6 +3,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../users/screens/follow_requests_screen.dart';
+import '../../users/screens/user_list_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({super.key});
@@ -368,7 +370,143 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               ),
             ),
 
-            const SizedBox(height: 36),
+            const SizedBox(height: 18),
+
+            // Followers & Following Count Bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () {
+                      if (user != null) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => UserListScreen(
+                              title: 'Followers',
+                              userId: user.userId,
+                              isFollowers: true,
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Column(
+                        children: [
+                          Text(
+                            '${user?.followersCount ?? 0}',
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Followers',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Container(width: 1, height: 28, color: Colors.grey.withAlpha(80)),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () {
+                      if (user != null) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => UserListScreen(
+                              title: 'Following',
+                              userId: user.userId,
+                              isFollowers: false,
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Column(
+                        children: [
+                          Text(
+                            '${user?.followingCount ?? 0}',
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Following',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Follow Requests Tile
+            ListTile(
+              leading: const Icon(Icons.person_add_outlined, size: 28, color: AppTheme.whatsappGreen),
+              title: const Text('Follow Requests', style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text('Review and approve requests to follow you'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const FollowRequestsScreen()),
+                );
+              },
+            ),
+            const Divider(indent: 72, height: 1),
+
+            // Private Account Toggle
+            SwitchListTile(
+              secondary: Icon(
+                user?.isPrivate == true ? Icons.lock : Icons.lock_open,
+                size: 28,
+                color: user?.isPrivate == true ? Colors.amber : Colors.grey,
+              ),
+              title: const Text('Private Account', style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: Text(
+                user?.isPrivate == true
+                    ? 'Only approved followers can send you messages'
+                    : 'Anyone can follow and send you messages directly',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                ),
+              ),
+              value: user?.isPrivate ?? false,
+              activeThumbColor: AppTheme.whatsappGreen,
+              onChanged: (val) async {
+                final messenger = ScaffoldMessenger.of(context);
+                final ok = await auth.updateProfile(isPrivate: val);
+                if (ok && mounted) {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(val ? 'Account is now Private' : 'Account is now Public'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              },
+            ),
+            const Divider(height: 1),
+
+            const SizedBox(height: 16),
 
             // Name Tile
             ListTile(

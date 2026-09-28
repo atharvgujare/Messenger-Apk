@@ -1,6 +1,3 @@
-import 'package:flutter/foundation.dart';
-import 'dart:io' show Platform;
-
 class AppConfig {
   static const String appName = 'Messenger';
 

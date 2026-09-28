@@ -14,6 +14,7 @@ public class UserProfile
     public PrivacyLevel AvatarPrivacy { get; set; } = PrivacyLevel.Everyone;
     public bool ReadReceiptsEnabled { get; set; } = true;
     public bool TypingIndicatorEnabled { get; set; } = true;
+    public bool IsPrivate { get; set; } = false;
 
     // Navigation
     public User User { get; set; } = null!;

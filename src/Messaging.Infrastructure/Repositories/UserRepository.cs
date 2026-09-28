@@ -238,6 +238,150 @@ public class UserRepository : IUserRepository
         await _context.SaveChangesAsync(ct);
     }
 
+    public async Task<bool> CanMessageUserAsync(Guid senderId, Guid recipientId, CancellationToken ct = default)
+    {
+        if (senderId == recipientId) return true;
+
+        var recipient = await _context.Users
+            .Include(u => u.Profile)
+            .FirstOrDefaultAsync(u => u.Id == recipientId, ct);
+
+        if (recipient == null) return false;
+
+        // If recipient profile is public (not private), anyone can message
+        if (recipient.Profile?.IsPrivate != true) return true;
+
+        // If recipient profile is private, verify sender is an accepted follower
+        return await _context.UserFollows.AnyAsync(f =>
+            f.FollowerId == senderId &&
+            f.FolloweeId == recipientId &&
+            f.Status == FollowStatus.Accepted, ct);
+    }
+
+    public async Task<UserFollow?> GetFollowAsync(Guid followerId, Guid followeeId, CancellationToken ct = default)
+    {
+        return await _context.UserFollows
+            .FirstOrDefaultAsync(f => f.FollowerId == followerId && f.FolloweeId == followeeId, ct);
+    }
+
+    public async Task<UserFollow?> GetFollowRequestByIdAsync(Guid requestId, CancellationToken ct = default)
+    {
+        return await _context.UserFollows
+            .Include(f => f.Follower)
+            .ThenInclude(u => u.Profile)
+            .FirstOrDefaultAsync(f => f.Id == requestId, ct);
+    }
+
+    public async Task AddFollowAsync(UserFollow follow, CancellationToken ct = default)
+    {
+        await _context.UserFollows.AddAsync(follow, ct);
+    }
+
+    public Task UpdateFollowAsync(UserFollow follow, CancellationToken ct = default)
+    {
+        _context.UserFollows.Update(follow);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteFollowAsync(UserFollow follow, CancellationToken ct = default)
+    {
+        _context.UserFollows.Remove(follow);
+        return Task.CompletedTask;
+    }
+
+    public async Task<IReadOnlyList<UserFollow>> GetPendingFollowRequestsAsync(Guid userId, CancellationToken ct = default)
+    {
+        return await _context.UserFollows
+            .Include(f => f.Follower)
+            .ThenInclude(u => u.Profile)
+            .Where(f => f.FolloweeId == userId && f.Status == FollowStatus.Pending)
+            .OrderByDescending(f => f.CreatedAtUtc)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<UserFollow>> GetFollowersAsync(Guid userId, CancellationToken ct = default)
+    {
+        return await _context.UserFollows
+            .Include(f => f.Follower)
+            .ThenInclude(u => u.Profile)
+            .Where(f => f.FolloweeId == userId && f.Status == FollowStatus.Accepted)
+            .OrderByDescending(f => f.CreatedAtUtc)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<UserFollow>> GetFollowingAsync(Guid userId, CancellationToken ct = default)
+    {
+        return await _context.UserFollows
+            .Include(f => f.Followee)
+            .ThenInclude(u => u.Profile)
+            .Where(f => f.FollowerId == userId && f.Status == FollowStatus.Accepted)
+            .OrderByDescending(f => f.CreatedAtUtc)
+            .ToListAsync(ct);
+    }
+
+    public async Task<int> GetFollowersCountAsync(Guid userId, CancellationToken ct = default)
+    {
+        return await _context.UserFollows
+            .CountAsync(f => f.FolloweeId == userId && f.Status == FollowStatus.Accepted, ct);
+    }
+
+    public async Task<int> GetFollowingCountAsync(Guid userId, CancellationToken ct = default)
+    {
+        return await _context.UserFollows
+            .CountAsync(f => f.FollowerId == userId && f.Status == FollowStatus.Accepted, ct);
+    }
+
+    public async Task AddSnapAsync(Snap snap, CancellationToken ct = default)
+    {
+        await _context.Snaps.AddAsync(snap, ct);
+    }
+
+    public async Task<Snap?> GetSnapByIdAsync(Guid snapId, CancellationToken ct = default)
+    {
+        return await _context.Snaps
+            .Include(s => s.Sender)
+            .ThenInclude(u => u.Profile)
+            .FirstOrDefaultAsync(s => s.Id == snapId, ct);
+    }
+
+    public async Task<IReadOnlyList<Snap>> GetActiveSnapsAsync(Guid recipientId, CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        return await _context.Snaps
+            .Include(s => s.Sender)
+            .ThenInclude(u => u.Profile)
+            .Where(s => s.RecipientId == recipientId && !s.IsOpened && s.ExpiresAtUtc > now)
+            .OrderByDescending(s => s.CreatedAtUtc)
+            .ToListAsync(ct);
+    }
+
+    public Task UpdateSnapAsync(Snap snap, CancellationToken ct = default)
+    {
+        _context.Snaps.Update(snap);
+        return Task.CompletedTask;
+    }
+
+    public async Task<SnapStreak?> GetStreakAsync(Guid user1Id, Guid user2Id, CancellationToken ct = default)
+    {
+        var min = user1Id.CompareTo(user2Id) < 0 ? user1Id : user2Id;
+        var max = user1Id.CompareTo(user2Id) < 0 ? user2Id : user1Id;
+        return await _context.SnapStreaks
+            .FirstOrDefaultAsync(s => s.User1Id == min && s.User2Id == max, ct);
+    }
+
+    public async Task AddOrUpdateStreakAsync(SnapStreak streak, CancellationToken ct = default)
+    {
+        var existing = await _context.SnapStreaks.FindAsync(new object[] { streak.Id }, ct);
+        if (existing == null)
+        {
+            await _context.SnapStreaks.AddAsync(streak, ct);
+        }
+        else
+        {
+            _context.SnapStreaks.Update(streak);
+        }
+    }
+
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {
         await _context.SaveChangesAsync(ct);

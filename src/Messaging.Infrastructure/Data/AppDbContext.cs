@@ -18,6 +18,9 @@ public class AppDbContext : DbContext
     public DbSet<MessageReaction> MessageReactions => Set<MessageReaction>();
     public DbSet<MessageUserDeletion> MessageUserDeletions => Set<MessageUserDeletion>();
     public DbSet<EmailVerificationOtp> EmailVerificationOtps => Set<EmailVerificationOtp>();
+    public DbSet<UserFollow> UserFollows => Set<UserFollow>();
+    public DbSet<Snap> Snaps => Set<Snap>();
+    public DbSet<SnapStreak> SnapStreaks => Set<SnapStreak>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -227,6 +230,45 @@ public class AppDbContext : DbContext
                 .HasMaxLength(10);
 
             entity.HasIndex(o => new { o.Email, o.ExpiresAtUtc, o.IsUsed });
+        });
+
+        // UserFollow Configuration
+        modelBuilder.Entity<UserFollow>(entity =>
+        {
+            entity.HasKey(f => f.Id);
+            entity.HasIndex(f => new { f.FollowerId, f.FolloweeId }).IsUnique();
+
+            entity.HasOne(f => f.Follower)
+                .WithMany()
+                .HasForeignKey(f => f.FollowerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(f => f.Followee)
+                .WithMany()
+                .HasForeignKey(f => f.FolloweeId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Snap Configuration
+        modelBuilder.Entity<Snap>(entity =>
+        {
+            entity.HasKey(s => s.Id);
+            entity.HasOne(s => s.Sender)
+                .WithMany()
+                .HasForeignKey(s => s.SenderId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(s => s.Recipient)
+                .WithMany()
+                .HasForeignKey(s => s.RecipientId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // SnapStreak Configuration
+        modelBuilder.Entity<SnapStreak>(entity =>
+        {
+            entity.HasKey(s => s.Id);
+            entity.HasIndex(s => new { s.User1Id, s.User2Id }).IsUnique();
         });
     }
 }

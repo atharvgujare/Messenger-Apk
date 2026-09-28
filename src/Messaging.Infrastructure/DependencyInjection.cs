@@ -16,12 +16,19 @@ public static class DependencyInjection
         this IServiceCollection services, 
         IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? "Server=localhost\\SQLEXPRESS;Database=MessengerDb;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true;";
+        var connectionString = configuration.GetConnectionString("DefaultConnection") ?? string.Empty;
+        var isLinux = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux);
+        var explicitSqlite = string.Equals(configuration["UseSqlite"], "true", StringComparison.OrdinalIgnoreCase) || 
+                             string.Equals(Environment.GetEnvironmentVariable("USE_SQLITE"), "true", StringComparison.OrdinalIgnoreCase);
 
-        var useSqlite = string.Equals(configuration["UseSqlite"], "true", StringComparison.OrdinalIgnoreCase) || 
+        var useSqlite = explicitSqlite || isLinux || 
                         connectionString.Contains(".db", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(Environment.GetEnvironmentVariable("USE_SQLITE"), "true", StringComparison.OrdinalIgnoreCase);
+                        (connectionString.Contains("Data Source=", StringComparison.OrdinalIgnoreCase) && !connectionString.Contains("Server="));
+
+        if (useSqlite && (string.IsNullOrWhiteSpace(connectionString) || connectionString.Contains("SQLEXPRESS", StringComparison.OrdinalIgnoreCase)))
+        {
+            connectionString = "Data Source=/app/messenger.db";
+        }
 
         services.AddDbContext<AppDbContext>(options =>
         {

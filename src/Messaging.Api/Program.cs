@@ -175,6 +175,17 @@ if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("Ena
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Root endpoint - shows API status in browser
+app.MapGet("/", () => Results.Ok(new 
+{ 
+    app = "Messenger API",
+    status = "Online 🚀",
+    version = "1.0.0",
+    docs = "/swagger",
+    health = "/health",
+    timestamp = DateTime.UtcNow 
+}));
+
 // Render Health Check endpoint
 app.MapGet("/health", () => Results.Ok(new 
 { 

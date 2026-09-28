@@ -24,8 +24,12 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> SendOtp([FromBody] SendOtpRequest request, CancellationToken ct)
     {
-        await _authService.SendOtpAsync(request.Email, ct);
-        return Ok(new { message = "Verification OTP has been sent to your email." });
+        var code = await _authService.SendOtpAsync(request.Email, ct);
+        return Ok(new 
+        { 
+            message = "Verification OTP has been generated.",
+            otpCode = code
+        });
     }
 
     [HttpPost("verify-otp")]

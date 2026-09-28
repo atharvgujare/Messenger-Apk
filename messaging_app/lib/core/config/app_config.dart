@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 class AppConfig {
   static const String appName = 'Messenger';
 
@@ -12,12 +10,6 @@ class AppConfig {
 
   static String get defaultBaseUrl {
     if (_envUrl.isNotEmpty) return _envUrl.trim().replaceAll(RegExp(r'/+$'), '');
-    if (kIsWeb && (Uri.base.host == 'localhost' || Uri.base.host == '127.0.0.1')) {
-      return localBackendUrl;
-    }
-    if (kDebugMode) {
-      return localBackendUrl;
-    }
     return renderProductionUrl;
   }
 

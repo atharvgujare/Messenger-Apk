@@ -19,11 +19,25 @@ public class EmailService : IEmailService
 
     public async Task SendOtpEmailAsync(string toEmail, string otpCode, CancellationToken ct = default)
     {
-        var smtpHost = _configuration["Smtp:Host"];
-        var smtpPortStr = _configuration["Smtp:Port"];
-        var smtpUser = _configuration["Smtp:Username"];
-        var smtpPass = _configuration["Smtp:Password"];
-        var fromEmail = _configuration["Smtp:FromEmail"] ?? "noreply@messenger.app";
+        var smtpHost = _configuration["Smtp:Host"] 
+            ?? Environment.GetEnvironmentVariable("SMTP_HOST") 
+            ?? "smtp.gmail.com";
+
+        var smtpPortStr = _configuration["Smtp:Port"] 
+            ?? Environment.GetEnvironmentVariable("SMTP_PORT") 
+            ?? "587";
+
+        var smtpUser = _configuration["Smtp:Username"] 
+            ?? Environment.GetEnvironmentVariable("SMTP_USERNAME") 
+            ?? "atharvgujare.riyality@gmail.com";
+
+        var smtpPass = _configuration["Smtp:Password"] 
+            ?? Environment.GetEnvironmentVariable("SMTP_PASSWORD") 
+            ?? "ydiq yvyu ucrr xlgr";
+
+        var fromEmail = _configuration["Smtp:FromEmail"] 
+            ?? Environment.GetEnvironmentVariable("SMTP_FROM_EMAIL") 
+            ?? "atharvgujare.riyality@gmail.com";
 
         _logger.LogInformation("=================================================");
         _logger.LogInformation(">>> [EMAIL OTP VERIFICATION] <<<");
@@ -69,10 +83,12 @@ public class EmailService : IEmailService
             mail.To.Add(toEmail);
 
             await client.SendMailAsync(mail, ct);
+            _logger.LogInformation(">>> [EMAIL SENT SUCCESSFULLY] to {Email}", toEmail);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send SMTP email to {Email}. Continuing with logged OTP code.", toEmail);
+            _logger.LogError(ex, "Failed to send SMTP email to {Email}.", toEmail);
+            throw new InvalidOperationException($"Could not send verification email to {toEmail}: {ex.Message}", ex);
         }
     }
 }

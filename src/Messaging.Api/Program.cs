@@ -138,6 +138,8 @@ if (!Directory.Exists(wwwrootFolder)) Directory.CreateDirectory(wwwrootFolder);
 var avatarsFolder = Path.Combine(wwwrootFolder, "avatars");
 if (!Directory.Exists(avatarsFolder)) Directory.CreateDirectory(avatarsFolder);
 
+app.UseDefaultFiles();
+
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(wwwrootFolder),
@@ -262,16 +264,8 @@ if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("Ena
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Root endpoint - shows API status in browser
-app.MapGet("/", () => Results.Ok(new 
-{ 
-    app = "Messenger API",
-    status = "Online 🚀",
-    version = "1.0.0",
-    docs = "/swagger",
-    health = "/health",
-    timestamp = DateTime.UtcNow 
-}));
+// Fallback to Flutter Web index.html for client-side routing
+app.MapFallbackToFile("index.html");
 
 // Render Health Check endpoint
 app.MapGet("/health", () => Results.Ok(new 

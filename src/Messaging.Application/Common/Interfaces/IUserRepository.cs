@@ -33,13 +33,6 @@ public interface IUserRepository
     Task<int> GetFollowersCountAsync(Guid userId, CancellationToken ct = default);
     Task<int> GetFollowingCountAsync(Guid userId, CancellationToken ct = default);
 
-    Task AddSnapAsync(Snap snap, CancellationToken ct = default);
-    Task<Snap?> GetSnapByIdAsync(Guid snapId, CancellationToken ct = default);
-    Task<IReadOnlyList<Snap>> GetActiveSnapsAsync(Guid recipientId, CancellationToken ct = default);
-    Task UpdateSnapAsync(Snap snap, CancellationToken ct = default);
-    Task<SnapStreak?> GetStreakAsync(Guid user1Id, Guid user2Id, CancellationToken ct = default);
-    Task AddOrUpdateStreakAsync(SnapStreak streak, CancellationToken ct = default);
-
     Task SaveChangesAsync(CancellationToken ct = default);
 }
 

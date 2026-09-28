@@ -7,6 +7,7 @@ class LocalStorage {
   static const String _keyUsername = 'auth_username';
   static const String _keyDisplayName = 'auth_display_name';
   static const String _keyEmail = 'auth_email';
+  static const String _keyAvatarUrl = 'auth_avatar_url';
 
   final SharedPreferences _prefs;
 
@@ -24,6 +25,7 @@ class LocalStorage {
     required String username,
     required String displayName,
     required String email,
+    String? avatarUrl,
   }) async {
     await _prefs.setString(_keyAccessToken, accessToken);
     await _prefs.setString(_keyRefreshToken, refreshToken);
@@ -31,6 +33,17 @@ class LocalStorage {
     await _prefs.setString(_keyUsername, username);
     await _prefs.setString(_keyDisplayName, displayName);
     await _prefs.setString(_keyEmail, email);
+    if (avatarUrl != null && avatarUrl.isNotEmpty) {
+      await _prefs.setString(_keyAvatarUrl, avatarUrl);
+    }
+  }
+
+  Future<void> saveAvatarUrl(String? avatarUrl) async {
+    if (avatarUrl != null && avatarUrl.isNotEmpty) {
+      await _prefs.setString(_keyAvatarUrl, avatarUrl);
+    } else {
+      await _prefs.remove(_keyAvatarUrl);
+    }
   }
 
   Future<void> saveTokens({
@@ -47,6 +60,7 @@ class LocalStorage {
   String? getUsername() => _prefs.getString(_keyUsername);
   String? getDisplayName() => _prefs.getString(_keyDisplayName);
   String? getEmail() => _prefs.getString(_keyEmail);
+  String? getAvatarUrl() => _prefs.getString(_keyAvatarUrl);
 
   bool get hasSession => getAccessToken() != null && getUserId() != null;
 
@@ -57,5 +71,6 @@ class LocalStorage {
     await _prefs.remove(_keyUsername);
     await _prefs.remove(_keyDisplayName);
     await _prefs.remove(_keyEmail);
+    await _prefs.remove(_keyAvatarUrl);
   }
 }

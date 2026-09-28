@@ -13,8 +13,6 @@ import 'features/users/services/user_api_service.dart';
 
 import 'core/network/signalr_service.dart';
 import 'features/chats/providers/chat_provider.dart';
-import 'features/snaps/providers/snap_provider.dart';
-import 'features/snaps/services/snap_service.dart';
 
 import 'core/theme/theme_provider.dart';
 import 'core/services/notification_service.dart';
@@ -32,8 +30,6 @@ void main() async {
   final userSearchProvider = UserSearchProvider(userApiService);
   final signalRService = SignalRService(localStorage);
   final chatProvider = ChatProvider(apiClient, signalRService, authProvider);
-  final snapService = SnapService(apiClient);
-  final snapProvider = SnapProvider(snapService);
   final themeProvider = ThemeProvider();
 
   // Attempt auto-login with stored tokens
@@ -42,7 +38,6 @@ void main() async {
   if (authProvider.isAuthenticated) {
     chatProvider.connectRealTime();
     chatProvider.loadConversations();
-    snapProvider.fetchActiveSnaps();
   }
 
   runApp(
@@ -52,7 +47,6 @@ void main() async {
         ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
         ChangeNotifierProvider<UserSearchProvider>.value(value: userSearchProvider),
         ChangeNotifierProvider<ChatProvider>.value(value: chatProvider),
-        ChangeNotifierProvider<SnapProvider>.value(value: snapProvider),
       ],
       child: const MessengerApp(),
     ),

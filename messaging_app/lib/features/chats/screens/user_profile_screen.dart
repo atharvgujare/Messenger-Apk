@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -14,6 +15,16 @@ class UserProfileScreen extends StatefulWidget {
 }
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
+  Uint8List? _previewBytes;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AuthProvider>().refreshProfile();
+    });
+  }
+
   void _editName(BuildContext context, String currentName) {
     final controller = TextEditingController(text: currentName);
     showDialog(
@@ -124,8 +135,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
       if (pickedFile == null) return;
 
-      setState(() => _isUploadingPhoto = true);
       final bytes = await pickedFile.readAsBytes();
+      setState(() {
+        _previewBytes = bytes;
+        _isUploadingPhoto = true;
+      });
 
       final ok = await auth.uploadAvatar(bytes, pickedFile.name);
       if (mounted) {
@@ -225,6 +239,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   onTap: () async {
                     final messenger = ScaffoldMessenger.of(context);
                     Navigator.pop(ctx);
+                    setState(() => _previewBytes = null);
                     await auth.updateProfile(avatarUrl: '');
                     if (mounted) {
                       messenger.showSnackBar(
@@ -271,6 +286,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               borderRadius: BorderRadius.circular(50),
               onTap: () async {
                 Navigator.pop(ctx);
+                setState(() => _previewBytes = null);
                 final auth = context.read<AuthProvider>();
                 await auth.updateProfile(avatarUrl: presets[idx]);
               },
@@ -327,13 +343,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   CircleAvatar(
                     radius: 75,
                     backgroundColor: isDark ? AppTheme.darkSearchBar : Colors.grey[200],
-                    backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
-                        ? NetworkImage(avatarUrl)
-                        : null,
-                    onBackgroundImageError: (avatarUrl != null && avatarUrl.isNotEmpty)
+                    backgroundImage: _previewBytes != null
+                        ? MemoryImage(_previewBytes!)
+                        : ((avatarUrl != null && avatarUrl.isNotEmpty)
+                            ? NetworkImage(avatarUrl)
+                            : null),
+                    onBackgroundImageError: (_previewBytes == null && avatarUrl != null && avatarUrl.isNotEmpty)
                         ? (_, _) {}
                         : null,
-                    child: (avatarUrl == null || avatarUrl.isEmpty)
+                    child: (_previewBytes == null && (avatarUrl == null || avatarUrl.isEmpty))
                         ? Icon(
                             Icons.person,
                             size: 90,

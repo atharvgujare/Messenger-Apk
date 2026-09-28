@@ -62,10 +62,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     if (ok && mounted) {
       _startResendTimer();
+      if (auth.lastOtpCode != null && auth.lastOtpCode!.isNotEmpty) {
+        _otpController.text = auth.lastOtpCode!;
+      }
       setState(() => _currentStep = 1);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password reset OTP sent! Please check your email inbox.'),
+        SnackBar(
+          content: Text(auth.lastOtpCode != null
+              ? 'Password reset code: ${auth.lastOtpCode} (also sent to your email)'
+              : 'Password reset OTP sent! Please check your email inbox.'),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
         ),
@@ -161,6 +166,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final auth = context.watch<AuthProvider>();
 
     return Scaffold(
       appBar: AppBar(
@@ -272,6 +278,40 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     prefixIcon: Icon(Icons.pin_outlined),
                   ),
                 ),
+                if (auth.lastOtpCode != null && auth.lastOtpCode!.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Center(
+                    child: InkWell(
+                      onTap: () {
+                        _otpController.text = auth.lastOtpCode!;
+                      },
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withAlpha(25),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.amber.withAlpha(100)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.flash_on, size: 16, color: Colors.amber),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Fill Code: ${auth.lastOtpCode}',
+                              style: const TextStyle(
+                                color: Colors.amber,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,

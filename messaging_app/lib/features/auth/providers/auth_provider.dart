@@ -36,6 +36,7 @@ class AuthProvider extends ChangeNotifier {
       var uname = _storage.getUsername() ?? '';
       var dname = _storage.getDisplayName() ?? '';
       var email = _storage.getEmail();
+      var avatarUrl = _storage.getAvatarUrl();
 
       if (uid.isEmpty || uname.isEmpty) {
         final token = _storage.getAccessToken();
@@ -56,6 +57,7 @@ class AuthProvider extends ChangeNotifier {
           username: uname,
           displayName: dname.isNotEmpty ? dname : (uname.isNotEmpty ? uname : 'User'),
           email: email,
+          avatarUrl: avatarUrl,
           isOnline: true,
         );
       }
@@ -175,6 +177,7 @@ class AuthProvider extends ChangeNotifier {
         username: response.username,
         displayName: response.displayName,
         email: response.email,
+        avatarUrl: response.profile.avatarUrl,
       );
 
       _currentUser = response.profile;
@@ -214,6 +217,7 @@ class AuthProvider extends ChangeNotifier {
         username: response.username,
         displayName: response.displayName,
         email: response.email,
+        avatarUrl: response.profile.avatarUrl,
       );
 
       _currentUser = response.profile;
@@ -292,6 +296,7 @@ class AuthProvider extends ChangeNotifier {
         username: response.username,
         displayName: response.displayName,
         email: response.email,
+        avatarUrl: response.profile.avatarUrl,
       );
 
       _currentUser = response.profile;
@@ -312,7 +317,7 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _apiService.forgotPassword(email);
+      _lastOtpCode = await _apiService.forgotPassword(email);
       _isLoading = false;
       notifyListeners();
       return true;
@@ -367,6 +372,9 @@ class AuthProvider extends ChangeNotifier {
         avatarUrl: avatarUrl,
         isPrivate: isPrivate,
       );
+      if (updatedProfile.avatarUrl != null) {
+        await _storage.saveAvatarUrl(updatedProfile.avatarUrl);
+      }
       _currentUser = updatedProfile;
       _isLoading = false;
       notifyListeners();
@@ -377,6 +385,17 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  Future<void> refreshProfile() async {
+    try {
+      final profile = await _apiService.getMe();
+      _currentUser = profile;
+      if (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty) {
+        await _storage.saveAvatarUrl(profile.avatarUrl);
+      }
+      notifyListeners();
+    } catch (_) {}
   }
 
   Future<Map<String, dynamic>> followUser(String targetUserId) async {
@@ -431,8 +450,6 @@ class AuthProvider extends ChangeNotifier {
     return await _apiService.getFollowing(userId);
   }
 
-
-
   Future<bool> uploadAvatar(List<int> bytes, String filename) async {
     _isLoading = true;
     _errorMessage = null;
@@ -440,6 +457,9 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       final updatedProfile = await _apiService.uploadAvatar(bytes, filename);
+      if (updatedProfile.avatarUrl != null && updatedProfile.avatarUrl!.isNotEmpty) {
+        await _storage.saveAvatarUrl(updatedProfile.avatarUrl);
+      }
       _currentUser = updatedProfile;
       _isLoading = false;
       notifyListeners();

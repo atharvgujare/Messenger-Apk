@@ -19,8 +19,6 @@ public class AppDbContext : DbContext
     public DbSet<MessageUserDeletion> MessageUserDeletions => Set<MessageUserDeletion>();
     public DbSet<EmailVerificationOtp> EmailVerificationOtps => Set<EmailVerificationOtp>();
     public DbSet<UserFollow> UserFollows => Set<UserFollow>();
-    public DbSet<Snap> Snaps => Set<Snap>();
-    public DbSet<SnapStreak> SnapStreaks => Set<SnapStreak>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -247,28 +245,6 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(f => f.FolloweeId)
                 .OnDelete(DeleteBehavior.Restrict);
-        });
-
-        // Snap Configuration
-        modelBuilder.Entity<Snap>(entity =>
-        {
-            entity.HasKey(s => s.Id);
-            entity.HasOne(s => s.Sender)
-                .WithMany()
-                .HasForeignKey(s => s.SenderId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne(s => s.Recipient)
-                .WithMany()
-                .HasForeignKey(s => s.RecipientId)
-                .OnDelete(DeleteBehavior.Restrict);
-        });
-
-        // SnapStreak Configuration
-        modelBuilder.Entity<SnapStreak>(entity =>
-        {
-            entity.HasKey(s => s.Id);
-            entity.HasIndex(s => new { s.User1Id, s.User2Id }).IsUnique();
         });
     }
 }

@@ -1,5 +1,4 @@
 using Messaging.Application.DTOs.Auth;
-using Messaging.Application.DTOs.Snaps;
 using Messaging.Application.DTOs.Users;
 
 namespace Messaging.Application.Common.Interfaces;
@@ -34,8 +33,4 @@ public interface IUserService
     Task<IReadOnlyList<FollowUserDto>> GetFollowersAsync(Guid targetUserId, CancellationToken ct = default);
     Task<IReadOnlyList<FollowUserDto>> GetFollowingAsync(Guid targetUserId, CancellationToken ct = default);
     Task<bool> CanMessageUserAsync(Guid senderId, Guid recipientId, CancellationToken ct = default);
-
-    Task<SnapDto> SendSnapAsync(Guid senderId, Messaging.Application.DTOs.Snaps.CreateSnapRequest request, CancellationToken ct = default);
-    Task<IReadOnlyList<SnapDto>> GetActiveSnapsAsync(Guid recipientId, CancellationToken ct = default);
-    Task<SnapDto?> OpenSnapAsync(Guid recipientId, Guid snapId, CancellationToken ct = default);
 }

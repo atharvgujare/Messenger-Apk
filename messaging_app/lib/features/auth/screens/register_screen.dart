@@ -73,12 +73,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (success) {
       _startResendTimer();
+      if (auth.lastOtpCode != null && auth.lastOtpCode!.isNotEmpty) {
+        _otpController.text = auth.lastOtpCode!;
+      }
       setState(() {
         _currentStep = 1;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Verification code sent to $email. Please check your inbox.'),
+          content: Text(auth.lastOtpCode != null 
+              ? 'Verification code: ${auth.lastOtpCode} (also sent to $email)'
+              : 'Verification code sent to $email. Please check your inbox.'),
           backgroundColor: AppTheme.whatsappGreenLight,
           behavior: SnackBarBehavior.floating,
         ),
@@ -342,6 +347,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
               return null;
             },
           ),
+          if (auth.lastOtpCode != null && auth.lastOtpCode!.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Center(
+              child: InkWell(
+                onTap: () {
+                  _otpController.text = auth.lastOtpCode!;
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.whatsappGreen.withAlpha(25),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppTheme.whatsappGreen.withAlpha(80)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.flash_on, size: 16, color: AppTheme.whatsappGreen),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Fill Code: ${auth.lastOtpCode}',
+                        style: const TextStyle(
+                          color: AppTheme.whatsappGreen,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,

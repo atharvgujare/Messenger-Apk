@@ -331,57 +331,6 @@ public class UserRepository : IUserRepository
             .CountAsync(f => f.FollowerId == userId && f.Status == FollowStatus.Accepted, ct);
     }
 
-    public async Task AddSnapAsync(Snap snap, CancellationToken ct = default)
-    {
-        await _context.Snaps.AddAsync(snap, ct);
-    }
-
-    public async Task<Snap?> GetSnapByIdAsync(Guid snapId, CancellationToken ct = default)
-    {
-        return await _context.Snaps
-            .Include(s => s.Sender)
-            .ThenInclude(u => u.Profile)
-            .FirstOrDefaultAsync(s => s.Id == snapId, ct);
-    }
-
-    public async Task<IReadOnlyList<Snap>> GetActiveSnapsAsync(Guid recipientId, CancellationToken ct = default)
-    {
-        var now = DateTime.UtcNow;
-        return await _context.Snaps
-            .Include(s => s.Sender)
-            .ThenInclude(u => u.Profile)
-            .Where(s => s.RecipientId == recipientId && !s.IsOpened && s.ExpiresAtUtc > now)
-            .OrderByDescending(s => s.CreatedAtUtc)
-            .ToListAsync(ct);
-    }
-
-    public Task UpdateSnapAsync(Snap snap, CancellationToken ct = default)
-    {
-        _context.Snaps.Update(snap);
-        return Task.CompletedTask;
-    }
-
-    public async Task<SnapStreak?> GetStreakAsync(Guid user1Id, Guid user2Id, CancellationToken ct = default)
-    {
-        var min = user1Id.CompareTo(user2Id) < 0 ? user1Id : user2Id;
-        var max = user1Id.CompareTo(user2Id) < 0 ? user2Id : user1Id;
-        return await _context.SnapStreaks
-            .FirstOrDefaultAsync(s => s.User1Id == min && s.User2Id == max, ct);
-    }
-
-    public async Task AddOrUpdateStreakAsync(SnapStreak streak, CancellationToken ct = default)
-    {
-        var existing = await _context.SnapStreaks.FindAsync(new object[] { streak.Id }, ct);
-        if (existing == null)
-        {
-            await _context.SnapStreaks.AddAsync(streak, ct);
-        }
-        else
-        {
-            _context.SnapStreaks.Update(streak);
-        }
-    }
-
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {
         await _context.SaveChangesAsync(ct);

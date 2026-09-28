@@ -24,8 +24,11 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> SendOtp([FromBody] SendOtpRequest request, CancellationToken ct)
     {
-        await _authService.SendOtpAsync(request.Email, ct);
-        return Ok(new { message = "Verification code has been dispatched to your email inbox." });
+        var otpCode = await _authService.SendOtpAsync(request.Email, ct);
+        return Ok(new { 
+            message = "Verification code has been dispatched to your email inbox.",
+            otpCode = otpCode 
+        });
     }
 
     [HttpPost("forgot-password")]
@@ -34,8 +37,11 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken ct)
     {
-        await _authService.ForgotPasswordAsync(request.Email, ct);
-        return Ok(new { message = "Password reset code has been sent to your registered email." });
+        var otpCode = await _authService.ForgotPasswordAsync(request.Email, ct);
+        return Ok(new { 
+            message = "Password reset code has been sent to your registered email.",
+            otpCode = otpCode 
+        });
     }
 
     [HttpPost("reset-password")]

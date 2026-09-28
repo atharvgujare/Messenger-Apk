@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../snaps/screens/create_snap_screen.dart';
 import '../models/conversation_model.dart';
 import '../models/message_model.dart';
 import '../providers/chat_provider.dart';
@@ -363,20 +362,20 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           actions: [
             IconButton(
-              icon: const Icon(Icons.camera_alt_outlined, color: Colors.amber),
-              tooltip: 'Send Snap 🔥',
+              icon: const Icon(Icons.videocam_outlined),
+              tooltip: 'Video Call',
               onPressed: () {
-                final auth = context.read<AuthProvider>();
-                final currentUserId = auth.currentUser?.userId ?? '';
-                final other = widget.conversation.getOtherMember(currentUserId);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => CreateSnapScreen(
-                      targetRecipientId: other?.userId,
-                      targetRecipientName: other?.displayName ?? other?.username,
-                    ),
-                  ),
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Video call ringing...'), behavior: SnackBarBehavior.floating),
+                );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.call_outlined),
+              tooltip: 'Voice Call',
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Voice call ringing...'), behavior: SnackBarBehavior.floating),
                 );
               },
             ),
@@ -434,24 +433,11 @@ class _ChatScreenState extends State<ChatScreen> {
                         final msgSenderId = msg.senderId.trim().toLowerCase();
                         final msgSenderUsername = msg.senderUsername.trim().toLowerCase();
 
-                        // Check against other participant in direct chats
-                        final other = liveConv.otherParticipant ?? widget.conversation.otherParticipant;
-                        final otherId = other?.userId.trim().toLowerCase() ?? '';
-                        final otherUsername = other?.username.trim().toLowerCase() ?? '';
-
-                        final matchesOther = (otherId.isNotEmpty &&
-                                (msgSenderId == otherId || msgSenderId.replaceAll('-', '') == otherId.replaceAll('-', ''))) ||
-                            (otherUsername.isNotEmpty && msgSenderUsername == otherUsername);
-
                         final matchesMe = (currentUserId.isNotEmpty &&
                                 (msgSenderId == currentUserId || msgSenderId.replaceAll('-', '') == currentUserId.replaceAll('-', ''))) ||
                             (currentUsername.isNotEmpty && msgSenderUsername == currentUsername);
 
-                        final isDirect = liveConv.type == ConversationType.direct || widget.conversation.type == ConversationType.direct;
-
-                        final isMe = msg.status == MessageStatus.pending ||
-                            matchesMe ||
-                            (isDirect && other != null && !matchesOther);
+                        final isMe = msg.status == MessageStatus.pending || matchesMe;
 
                         return _buildMessageBubble(context, theme, msg, isMe, provider);
                       },

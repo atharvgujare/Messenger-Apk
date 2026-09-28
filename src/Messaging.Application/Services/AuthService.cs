@@ -217,7 +217,7 @@ public class AuthService : IAuthService
         return MapToProfileDto(user, profile);
     }
 
-    public async Task SendOtpAsync(string email, CancellationToken ct = default)
+    public async Task<string> SendOtpAsync(string email, CancellationToken ct = default)
     {
         var sanitizedEmail = email.Trim().ToLowerInvariant();
 
@@ -255,9 +255,11 @@ public class AuthService : IAuthService
         {
             System.Console.WriteLine($"[EMAIL NOTICE] Outbound email attempt notice: {ex.Message}");
         }
+
+        return otpCode;
     }
 
-    public async Task ForgotPasswordAsync(string email, CancellationToken ct = default)
+    public async Task<string> ForgotPasswordAsync(string email, CancellationToken ct = default)
     {
         var sanitizedEmail = email.Trim().ToLowerInvariant();
 
@@ -295,6 +297,8 @@ public class AuthService : IAuthService
         {
             System.Console.WriteLine($"[PASSWORD RESET NOTICE] Outbound email notice: {ex.Message}");
         }
+
+        return otpCode;
     }
 
     public async Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct = default)

@@ -108,12 +108,16 @@ class AuthApiService {
     } catch (_) {}
   }
 
-  Future<void> forgotPassword(String email) async {
-    await _client.post(
+  Future<String?> forgotPassword(String email) async {
+    final response = await _client.post(
       '/auth/forgot-password',
       includeAuth: false,
       body: {'email': email},
     );
+    if (response is Map<String, dynamic> && response.containsKey('otpCode')) {
+      return response['otpCode']?.toString();
+    }
+    return null;
   }
 
   Future<void> resetPassword({

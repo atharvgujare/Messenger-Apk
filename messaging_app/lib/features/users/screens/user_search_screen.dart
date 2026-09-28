@@ -154,13 +154,21 @@ class _UserSearchScreenState extends State<UserSearchScreen> {
                               CircleAvatar(
                                 radius: 24,
                                 backgroundColor: theme.colorScheme.primary,
-                                child: Text(
-                                  user.initials,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                                backgroundImage: (user.avatarUrl != null && user.avatarUrl!.isNotEmpty)
+                                    ? NetworkImage(user.avatarUrl!)
+                                    : null,
+                                onBackgroundImageError: (user.avatarUrl != null && user.avatarUrl!.isNotEmpty)
+                                    ? (_, _) {}
+                                    : null,
+                                child: (user.avatarUrl == null || user.avatarUrl!.isEmpty)
+                                    ? Text(
+                                        user.initials,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      )
+                                    : null,
                               ),
                               if (user.isOnline)
                                 Positioned(

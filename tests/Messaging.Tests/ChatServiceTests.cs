@@ -100,6 +100,9 @@ public class ChatServiceTests
         _userRepoMock.Setup(u => u.GetByIdAsync(recipientId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(recipient);
 
+        _userRepoMock.Setup(u => u.CanMessageUserAsync(currentUserId, recipientId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
         _convRepoMock.Setup(c => c.GetDirectConversationAsync(currentUserId, recipientId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Conversation?)null);
 
@@ -110,6 +113,35 @@ public class ChatServiceTests
             conv.Type == ConversationType.Direct &&
             conv.Members.Count == 2), It.IsAny<CancellationToken>()), Times.Once);
         _convRepoMock.Verify(c => c.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetOrCreateDirectConversationAsync_ShouldThrowUnauthorized_WhenAccountIsPrivateAndCannotMessage()
+    {
+        var currentUserId = Guid.NewGuid();
+        var recipientId = Guid.NewGuid();
+
+        var recipient = new User
+        {
+            Id = recipientId,
+            Username = "private_user",
+            IsActive = true,
+            Profile = new UserProfile { DisplayName = "Private User" }
+        };
+
+        _userRepoMock.Setup(u => u.GetByIdAsync(recipientId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(recipient);
+
+        _userRepoMock.Setup(u => u.CanMessageUserAsync(currentUserId, recipientId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        _convRepoMock.Setup(c => c.GetDirectConversationAsync(currentUserId, recipientId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Conversation?)null);
+
+        var ex = await Assert.ThrowsAsync<UnauthorizedException>(() =>
+            _chatService.GetOrCreateDirectConversationAsync(currentUserId, recipientId));
+
+        Assert.Contains("private", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

@@ -309,14 +309,22 @@ class _ChatScreenState extends State<ChatScreen> {
                   CircleAvatar(
                     radius: 20,
                     backgroundColor: theme.colorScheme.primary,
-                    child: Text(
-                      initials,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
+                    backgroundImage: (liveConv.avatarUrl != null && liveConv.avatarUrl!.isNotEmpty)
+                        ? NetworkImage(liveConv.avatarUrl!)
+                        : null,
+                    onBackgroundImageError: (liveConv.avatarUrl != null && liveConv.avatarUrl!.isNotEmpty)
+                        ? (_, _) {}
+                        : null,
+                    child: (liveConv.avatarUrl == null || liveConv.avatarUrl!.isEmpty)
+                        ? Text(
+                            initials,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          )
+                        : null,
                   ),
                   if (isOnline)
                     Positioned(
@@ -423,9 +431,28 @@ class _ChatScreenState extends State<ChatScreen> {
                       itemCount: messages.length,
                       itemBuilder: (context, index) {
                         final msg = messages[index];
+                        final msgSenderId = msg.senderId.trim().toLowerCase();
+                        final msgSenderUsername = msg.senderUsername.trim().toLowerCase();
+
+                        // Check against other participant in direct chats
+                        final other = liveConv.otherParticipant ?? widget.conversation.otherParticipant;
+                        final otherId = other?.userId.trim().toLowerCase() ?? '';
+                        final otherUsername = other?.username.trim().toLowerCase() ?? '';
+
+                        final matchesOther = (otherId.isNotEmpty &&
+                                (msgSenderId == otherId || msgSenderId.replaceAll('-', '') == otherId.replaceAll('-', ''))) ||
+                            (otherUsername.isNotEmpty && msgSenderUsername == otherUsername);
+
+                        final matchesMe = (currentUserId.isNotEmpty &&
+                                (msgSenderId == currentUserId || msgSenderId.replaceAll('-', '') == currentUserId.replaceAll('-', ''))) ||
+                            (currentUsername.isNotEmpty && msgSenderUsername == currentUsername);
+
+                        final isDirect = liveConv.type == ConversationType.direct || widget.conversation.type == ConversationType.direct;
+
                         final isMe = msg.status == MessageStatus.pending ||
-                                     (currentUserId.isNotEmpty && msg.senderId.trim().toLowerCase() == currentUserId) ||
-                                     (currentUsername.isNotEmpty && msg.senderUsername.trim().toLowerCase() == currentUsername);
+                            matchesMe ||
+                            (isDirect && other != null && !matchesOther);
+
                         return _buildMessageBubble(context, theme, msg, isMe, provider);
                       },
                     );
@@ -652,14 +679,18 @@ class _ChatScreenState extends State<ChatScreen> {
                             Icon(
                               Icons.block_rounded,
                               size: 14,
-                              color: isMe ? Colors.white70 : Colors.grey,
+                              color: isMe
+                                  ? (isDark ? Colors.white70 : const Color(0xFF667781))
+                                  : (isDark ? Colors.white60 : Colors.grey.shade600),
                             ),
                             const SizedBox(width: 6),
                             Text(
                               'This message was deleted',
                               style: TextStyle(
                                 fontStyle: FontStyle.italic,
-                                color: isMe ? Colors.white70 : Colors.grey.shade600,
+                                color: isMe
+                                    ? (isDark ? Colors.white70 : const Color(0xFF667781))
+                                    : (isDark ? Colors.white60 : Colors.grey.shade600),
                                 fontSize: 14,
                               ),
                             ),
@@ -675,7 +706,6 @@ class _ChatScreenState extends State<ChatScreen> {
                         ),
                       const SizedBox(height: 4),
 
-
                       // Timestamp, Edited Tag & Status Icon
                       Row(
                         mainAxisSize: MainAxisSize.min,
@@ -686,7 +716,9 @@ class _ChatScreenState extends State<ChatScreen> {
                               style: TextStyle(
                                 fontSize: 10,
                                 fontStyle: FontStyle.italic,
-                                color: isMe ? Colors.white60 : Colors.grey,
+                                color: isMe
+                                    ? (isDark ? Colors.white60 : const Color(0xFF667781))
+                                    : (isDark ? Colors.white60 : const Color(0xFF667781)),
                               ),
                             ),
                           ],
@@ -694,12 +726,14 @@ class _ChatScreenState extends State<ChatScreen> {
                             timeStr,
                             style: TextStyle(
                               fontSize: 11,
-                              color: isMe ? Colors.white70 : Colors.grey,
+                              color: isMe
+                                  ? (isDark ? Colors.white70 : const Color(0xFF667781))
+                                  : (isDark ? Colors.white60 : const Color(0xFF667781)),
                             ),
                           ),
                           if (isMe && !isDeleted) ...[
                             const SizedBox(width: 4),
-                            _buildStatusIcon(message.status),
+                            _buildStatusIcon(message.status, isDark),
                           ],
                         ],
                       ),
@@ -722,15 +756,20 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildQuotedReplyPreview(ThemeData theme, MessageModel message, bool isMe) {
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: isMe ? Colors.black.withAlpha(35) : Colors.black.withAlpha(12),
+        color: isMe
+            ? (isDark ? Colors.black.withAlpha(50) : const Color(0x18005C4B))
+            : (isDark ? Colors.black.withAlpha(35) : const Color(0x0C000000)),
         borderRadius: BorderRadius.circular(8),
         border: Border(
           left: BorderSide(
-            color: isMe ? Colors.white : theme.colorScheme.primary,
+            color: isMe
+                ? (isDark ? Colors.white70 : AppTheme.whatsappGreenLight)
+                : theme.colorScheme.primary,
             width: 3.5,
           ),
         ),
@@ -744,7 +783,9 @@ class _ChatScreenState extends State<ChatScreen> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
-              color: isMe ? Colors.white : theme.colorScheme.primary,
+              color: isMe
+                  ? (isDark ? Colors.white : AppTheme.whatsappGreenLight)
+                  : theme.colorScheme.primary,
             ),
           ),
           const SizedBox(height: 2),
@@ -754,7 +795,7 @@ class _ChatScreenState extends State<ChatScreen> {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 12,
-              color: isMe ? Colors.white70 : Colors.black87,
+              color: isDark ? Colors.white70 : const Color(0xFF111B21),
             ),
           ),
         ],
@@ -808,18 +849,29 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildStatusIcon(MessageStatus status) {
+  Widget _buildStatusIcon(MessageStatus status, bool isDark) {
+    final defaultTickColor = isDark ? Colors.white70 : const Color(0xFF667781);
+    const readTickColor = AppTheme.whatsappBlueCheck; // Color(0xFF53BDEB)
+
     switch (status) {
       case MessageStatus.pending:
-        return const Icon(Icons.access_time_rounded, size: 13, color: Colors.white70);
+        return Icon(
+          Icons.access_time_rounded,
+          size: 13,
+          color: isDark ? Colors.white60 : const Color(0xFF667781),
+        );
       case MessageStatus.sent:
-        return const Icon(Icons.check_rounded, size: 14, color: Colors.white70);
+        return Icon(Icons.check_rounded, size: 14, color: defaultTickColor);
       case MessageStatus.delivered:
-        return const Icon(Icons.done_all_rounded, size: 14, color: Colors.white70);
+        return Icon(Icons.done_all_rounded, size: 14, color: defaultTickColor);
       case MessageStatus.read:
-        return const Icon(Icons.done_all_rounded, size: 14, color: Color(0xFF64FFDA));
+        return const Icon(Icons.done_all_rounded, size: 14, color: readTickColor);
       case MessageStatus.failed:
-        return const Icon(Icons.error_outline_rounded, size: 14, color: Colors.amberAccent);
+        return Icon(
+          Icons.error_outline_rounded,
+          size: 14,
+          color: isDark ? Colors.amberAccent : Colors.redAccent,
+        );
     }
   }
 

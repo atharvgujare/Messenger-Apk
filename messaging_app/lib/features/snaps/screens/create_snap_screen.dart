@@ -61,15 +61,26 @@ class _CreateSnapScreenState extends State<CreateSnapScreen> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
-    final picker = ImagePicker();
-    final file = await picker.pickImage(
-      source: source,
-      maxWidth: 1440,
-      maxHeight: 2560,
-      imageQuality: 85,
-    );
-    if (file != null) {
-      setState(() => _selectedFile = file);
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickImage(
+        source: source,
+        maxWidth: 1440,
+        maxHeight: 2560,
+        imageQuality: 85,
+      );
+      if (file != null && mounted) {
+        setState(() => _selectedFile = file);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to open ${source == ImageSource.camera ? "camera" : "gallery"}: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -137,16 +148,18 @@ class _CreateSnapScreenState extends State<CreateSnapScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.black,
+        elevation: 0,
         foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
           _selectedRecipientName != null ? 'Snap to ${_selectedRecipientName!}' : 'New Snap',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
         ),
         actions: [
           if (_selectedFile != null)
             IconButton(
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(Icons.refresh, color: Colors.white),
               tooltip: 'Retake',
               onPressed: () => setState(() => _selectedFile = null),
             ),
@@ -157,59 +170,70 @@ class _CreateSnapScreenState extends State<CreateSnapScreen> {
   }
 
   Widget _buildCapturePicker() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.amber.withAlpha(30),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.camera_alt_rounded, size: 72, color: Colors.amber),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Create a Disappearing Snap',
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 40),
-            child: Text(
-              'Capture or select a photo that disappears after viewing with streak tracking.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white70, fontSize: 13),
-            ),
-          ),
-          const SizedBox(height: 36),
-          Row(
+    return SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.whatsappGreen,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withAlpha(30),
+                  shape: BoxShape.circle,
                 ),
-                onPressed: () => _pickImage(ImageSource.camera),
-                icon: const Icon(Icons.camera_alt_outlined),
-                label: const Text('Camera'),
+                child: const Icon(Icons.camera_alt_rounded, size: 72, color: Colors.amber),
               ),
-              const SizedBox(width: 16),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white60),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              const SizedBox(height: 24),
+              const Text(
+                'Create a Disappearing Snap',
+                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  'Capture or select a photo that disappears after viewing with streak tracking.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
                 ),
-                onPressed: () => _pickImage(ImageSource.gallery),
-                icon: const Icon(Icons.photo_library_outlined),
-                label: const Text('Gallery'),
+              ),
+              const SizedBox(height: 36),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.whatsappGreen,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(125, 48),
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                    ),
+                    onPressed: () => _pickImage(ImageSource.camera),
+                    icon: const Icon(Icons.camera_alt_outlined, color: Colors.white),
+                    label: const Text('Camera', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 16),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white70),
+                      minimumSize: const Size(125, 48),
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                    ),
+                    onPressed: () => _pickImage(ImageSource.gallery),
+                    icon: const Icon(Icons.photo_library_outlined, color: Colors.white),
+                    label: const Text('Gallery', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -248,31 +272,41 @@ class _CreateSnapScreenState extends State<CreateSnapScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             ),
                           )
-                        : DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              dropdownColor: const Color(0xFF222222),
-                              hint: const Text('Select Friend to Send', style: TextStyle(color: Colors.white70)),
-                        value: _selectedRecipientId,
-                        icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-                        items: _friends.map((f) {
-                          final id = f['userId']?.toString() ?? '';
-                          final name = f['displayName']?.toString() ?? f['username']?.toString() ?? 'Friend';
-                          return DropdownMenuItem<String>(
-                            value: id,
-                            child: Text(name, style: const TextStyle(color: Colors.white)),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          if (val != null) {
-                            final match = _friends.firstWhere((f) => f['userId'] == val, orElse: () => {});
-                            setState(() {
-                              _selectedRecipientId = val;
-                              _selectedRecipientName = match['displayName']?.toString() ?? match['username']?.toString();
-                            });
-                          }
-                        },
-                      ),
-                    ),
+                        : _friends.isEmpty
+                            ? const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                                child: Text(
+                                  'Follow a friend to send them snaps',
+                                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                                ),
+                              )
+                            : DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  dropdownColor: const Color(0xFF222222),
+                                  hint: const Text('Select Friend to Send', style: TextStyle(color: Colors.white70)),
+                                  value: _friends.any((f) => f['userId']?.toString() == _selectedRecipientId)
+                                      ? _selectedRecipientId
+                                      : null,
+                                  icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                                  items: _friends.map((f) {
+                                    final id = f['userId']?.toString() ?? '';
+                                    final name = f['displayName']?.toString() ?? f['username']?.toString() ?? 'Friend';
+                                    return DropdownMenuItem<String>(
+                                      value: id,
+                                      child: Text(name, style: const TextStyle(color: Colors.white)),
+                                    );
+                                  }).toList(),
+                                  onChanged: (val) {
+                                    if (val != null) {
+                                      final match = _friends.firstWhere((f) => f['userId'] == val, orElse: () => {});
+                                      setState(() {
+                                        _selectedRecipientId = val;
+                                        _selectedRecipientName = match['displayName']?.toString() ?? match['username']?.toString();
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
                   ),
                 )
               else

@@ -168,6 +168,9 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                               backgroundImage: (user.avatarUrl != null && user.avatarUrl!.isNotEmpty)
                                   ? NetworkImage(user.avatarUrl!)
                                   : null,
+                              onBackgroundImageError: (user.avatarUrl != null && user.avatarUrl!.isNotEmpty)
+                                  ? (_, _) {}
+                                  : null,
                               child: (user.avatarUrl == null || user.avatarUrl!.isEmpty)
                                   ? Text(
                                       user.displayName.isNotEmpty ? user.displayName[0].toUpperCase() : '?',
@@ -236,6 +239,9 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                               backgroundColor: AppTheme.whatsappGreen,
                               backgroundImage: (user.avatarUrl != null && user.avatarUrl!.isNotEmpty)
                                   ? NetworkImage(user.avatarUrl!)
+                                  : null,
+                              onBackgroundImageError: (user.avatarUrl != null && user.avatarUrl!.isNotEmpty)
+                                  ? (_, _) {}
                                   : null,
                               child: (user.avatarUrl == null || user.avatarUrl!.isEmpty)
                                   ? Text(

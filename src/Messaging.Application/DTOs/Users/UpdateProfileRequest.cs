@@ -5,9 +5,8 @@ namespace Messaging.Application.DTOs.Users;
 
 public class UpdateProfileRequest
 {
-    [Required(ErrorMessage = "Display name is required.")]
     [StringLength(100, MinimumLength = 1)]
-    public string DisplayName { get; set; } = string.Empty;
+    public string? DisplayName { get; set; }
 
     [StringLength(500)]
     public string? Bio { get; set; }

@@ -242,15 +242,14 @@ class ChatProvider extends ChangeNotifier {
     if (content.trim().isEmpty) return;
 
     final clientGeneratedId = _uuid.v4();
-    final currentUser = _authProvider.currentUser;
 
     // Create optimistic message
     final optimisticMessage = MessageModel(
       id: clientGeneratedId,
       conversationId: conversationId,
-      senderId: currentUser?.userId ?? '',
-      senderUsername: currentUser?.username ?? '',
-      senderDisplayName: currentUser?.displayName ?? currentUser?.username ?? 'You',
+      senderId: _authProvider.currentUserId,
+      senderUsername: _authProvider.currentUsername,
+      senderDisplayName: _authProvider.currentDisplayName,
       type: MessageType.text,
       content: content.trim(),
       createdAtUtc: DateTime.now(),
@@ -434,8 +433,12 @@ class ChatProvider extends ChangeNotifier {
 
     final myUserId = _authProvider.currentUserId.trim().toLowerCase();
     final myUsername = _authProvider.currentUsername.trim().toLowerCase();
-    final isMe = (myUserId.isNotEmpty && message.senderId.trim().toLowerCase() == myUserId) ||
-                 (myUsername.isNotEmpty && message.senderUsername.trim().toLowerCase() == myUsername);
+    final senderId = message.senderId.trim().toLowerCase();
+    final senderUsername = message.senderUsername.trim().toLowerCase();
+
+    final isMe = (myUserId.isNotEmpty &&
+            (senderId == myUserId || senderId.replaceAll('-', '') == myUserId.replaceAll('-', ''))) ||
+        (myUsername.isNotEmpty && senderUsername == myUsername);
 
     if (!isCurrentActive && !isMe) {
       final convMatches = _conversations.where((c) => c.conversationId == convId);

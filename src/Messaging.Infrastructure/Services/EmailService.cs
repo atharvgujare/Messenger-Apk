@@ -161,7 +161,7 @@ public class EmailService : IEmailService
             {
                 EnableSsl = true,
                 Credentials = new NetworkCredential(smtpUser, smtpPass),
-                Timeout = 3000
+                Timeout = 15000
             };
 
             var mail = new MailMessage
@@ -173,7 +173,7 @@ public class EmailService : IEmailService
             };
             mail.To.Add(toEmail);
 
-            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
             await client.SendMailAsync(mail, linkedCts.Token);
             _logger.LogInformation(">>> [EMAIL SENT SUCCESSFULLY VIA SMTP] to {Email}", toEmail);

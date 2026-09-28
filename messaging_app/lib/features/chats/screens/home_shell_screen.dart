@@ -571,6 +571,9 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
                 backgroundImage: (conv.avatarUrl != null && conv.avatarUrl!.isNotEmpty)
                     ? NetworkImage(conv.avatarUrl!)
                     : null,
+                onBackgroundImageError: (conv.avatarUrl != null && conv.avatarUrl!.isNotEmpty)
+                    ? (_, _) {}
+                    : null,
                 child: (conv.avatarUrl == null || conv.avatarUrl!.isEmpty)
                     ? (isGroup
                         ? const Icon(Icons.groups, color: AppTheme.whatsappGreen, size: 28)
@@ -635,9 +638,21 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
               final auth = context.read<AuthProvider>();
               final myUserId = auth.currentUserId.trim().toLowerCase();
               final myUsername = auth.currentUsername.trim().toLowerCase();
+              final otherId = conv.otherParticipant?.userId.trim().toLowerCase() ?? '';
+              final otherUsername = conv.otherParticipant?.username.trim().toLowerCase() ?? '';
+              final lastMsgSenderId = lastMsg?.senderId.trim().toLowerCase() ?? '';
+              final lastMsgSenderUsername = lastMsg?.senderUsername.trim().toLowerCase() ?? '';
+
+              final matchesOther = (otherId.isNotEmpty &&
+                      (lastMsgSenderId == otherId || lastMsgSenderId.replaceAll('-', '') == otherId.replaceAll('-', ''))) ||
+                  (otherUsername.isNotEmpty && lastMsgSenderUsername == otherUsername);
+
+              final matchesMe = (myUserId.isNotEmpty &&
+                      (lastMsgSenderId == myUserId || lastMsgSenderId.replaceAll('-', '') == myUserId.replaceAll('-', ''))) ||
+                  (myUsername.isNotEmpty && lastMsgSenderUsername == myUsername);
+
               final isSentByMe = lastMsg != null &&
-                  ((myUserId.isNotEmpty && lastMsg.senderId.trim().toLowerCase() == myUserId) ||
-                   (myUsername.isNotEmpty && lastMsg.senderUsername.trim().toLowerCase() == myUsername));
+                  (matchesMe || (!isGroup && conv.otherParticipant != null && !matchesOther));
 
               return Row(
                 children: [
@@ -796,6 +811,9 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
                     backgroundColor: Colors.black,
                     backgroundImage: (snap.senderAvatarUrl != null && snap.senderAvatarUrl!.isNotEmpty)
                         ? NetworkImage(snap.senderAvatarUrl!)
+                        : null,
+                    onBackgroundImageError: (snap.senderAvatarUrl != null && snap.senderAvatarUrl!.isNotEmpty)
+                        ? (_, _) {}
                         : null,
                     child: (snap.senderAvatarUrl == null || snap.senderAvatarUrl!.isEmpty)
                         ? Text(

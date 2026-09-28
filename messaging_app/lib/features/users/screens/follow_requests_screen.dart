@@ -127,6 +127,9 @@ class _FollowRequestsScreenState extends State<FollowRequestsScreen> {
                         backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
                             ? NetworkImage(avatarUrl)
                             : null,
+                        onBackgroundImageError: (avatarUrl != null && avatarUrl.isNotEmpty)
+                            ? (_, _) {}
+                            : null,
                         child: (avatarUrl == null || avatarUrl.isEmpty)
                             ? Text(
                                 followerName.isNotEmpty ? followerName[0].toUpperCase() : '?',

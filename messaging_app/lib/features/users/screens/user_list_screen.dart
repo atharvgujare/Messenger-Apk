@@ -84,6 +84,9 @@ class _UserListScreenState extends State<UserListScreen> {
                             backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
                                 ? NetworkImage(avatarUrl)
                                 : null,
+                            onBackgroundImageError: (avatarUrl != null && avatarUrl.isNotEmpty)
+                                ? (_, _) {}
+                                : null,
                             child: (avatarUrl == null || avatarUrl.isEmpty)
                                 ? Text(
                                     displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',

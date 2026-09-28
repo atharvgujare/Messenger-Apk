@@ -119,7 +119,7 @@ public class UserService : IUserService
             user.Profile = profile;
         }
 
-        profile.DisplayName = request.DisplayName.Trim();
+        if (!string.IsNullOrWhiteSpace(request.DisplayName)) profile.DisplayName = request.DisplayName.Trim();
         if (request.Bio != null) profile.Bio = request.Bio.Trim();
         if (request.AvatarUrl != null) profile.AvatarUrl = string.IsNullOrWhiteSpace(request.AvatarUrl) ? null : request.AvatarUrl.Trim();
         if (request.LastSeenPrivacy.HasValue) profile.LastSeenPrivacy = request.LastSeenPrivacy.Value;

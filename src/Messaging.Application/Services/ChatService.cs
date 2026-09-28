@@ -39,16 +39,16 @@ public class ChatService : IChatService
             throw new NotFoundException("Recipient user not found.");
         }
 
-        var canMessage = await _userRepository.CanMessageUserAsync(currentUserId, recipientUserId, ct);
-        if (!canMessage)
-        {
-            throw new UnauthorizedException("This user's account is private. Send a follow request and wait for approval before chatting.");
-        }
-
         var existingConv = await _conversationRepository.GetDirectConversationAsync(currentUserId, recipientUserId, ct);
         if (existingConv != null)
         {
             return await MapToConversationDtoAsync(existingConv, currentUserId, ct);
+        }
+
+        var canMessage = await _userRepository.CanMessageUserAsync(currentUserId, recipientUserId, ct);
+        if (!canMessage)
+        {
+            throw new UnauthorizedException("This user's account is private. Send a follow request and wait for approval before chatting.");
         }
 
         var newConv = new Conversation
@@ -136,20 +136,6 @@ public class ChatService : IChatService
         if (conversation == null)
         {
             throw new NotFoundException("Conversation not found.");
-        }
-
-        if (conversation.Type == ConversationType.Direct)
-        {
-            var memberIds = await _conversationRepository.GetMemberUserIdsAsync(request.ConversationId, ct);
-            var otherMemberId = memberIds.FirstOrDefault(id => id != senderId);
-            if (otherMemberId != Guid.Empty)
-            {
-                var canMessage = await _userRepository.CanMessageUserAsync(senderId, otherMemberId, ct);
-                if (!canMessage)
-                {
-                    throw new UnauthorizedException("This user's account is private. Send a follow request and wait for approval before chatting.");
-                }
-            }
         }
 
         Message? replyToMsg = null;

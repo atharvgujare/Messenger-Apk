@@ -247,7 +247,7 @@ public class AuthService : IAuthService
         // Attempt sending email via Brevo/Resend HTTPS API or SMTP without blocking
         try
         {
-            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
             await _emailService.SendOtpEmailAsync(sanitizedEmail, otpCode, linkedCts.Token);
         }
@@ -287,7 +287,7 @@ public class AuthService : IAuthService
 
         try
         {
-            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
             await _emailService.SendPasswordResetEmailAsync(sanitizedEmail, otpCode, linkedCts.Token);
         }

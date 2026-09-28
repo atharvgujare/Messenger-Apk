@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../../../core/storage/local_storage.dart';
 import '../models/auth_models.dart';
@@ -13,32 +14,98 @@ class AuthProvider extends ChangeNotifier {
   String? _errorMessage;
   String? _lastOtpCode;
 
+  static Map<String, dynamic>? _decodeJwt(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      var normalized = base64Url.normalize(parts[1]);
+      final payloadString = utf8.decode(base64Url.decode(normalized));
+      return jsonDecode(payloadString) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
   AuthProvider(this._apiService, this._storage) {
-    if (_storage.hasSession) {
-      _currentUser = UserProfileModel(
-        userId: _storage.getUserId() ?? '',
-        username: _storage.getUsername() ?? '',
-        displayName: _storage.getDisplayName() ?? _storage.getUsername() ?? '',
-        email: _storage.getEmail(),
-        isOnline: true,
-      );
+    _initFromStorage();
+  }
+
+  void _initFromStorage() {
+    if (_storage.hasSession || _storage.getAccessToken() != null) {
+      var uid = _storage.getUserId() ?? '';
+      var uname = _storage.getUsername() ?? '';
+      var dname = _storage.getDisplayName() ?? '';
+      var email = _storage.getEmail();
+
+      if (uid.isEmpty || uname.isEmpty) {
+        final token = _storage.getAccessToken();
+        if (token != null) {
+          final payload = _decodeJwt(token);
+          if (payload != null) {
+            uid = uid.isNotEmpty ? uid : (payload['nameid']?.toString() ?? payload['sub']?.toString() ?? '');
+            uname = uname.isNotEmpty ? uname : (payload['unique_name']?.toString() ?? payload['name']?.toString() ?? '');
+            email = email ?? payload['email']?.toString();
+            if (dname.isEmpty) dname = uname;
+          }
+        }
+      }
+
+      if (uid.isNotEmpty || uname.isNotEmpty) {
+        _currentUser = UserProfileModel(
+          userId: uid,
+          username: uname,
+          displayName: dname.isNotEmpty ? dname : (uname.isNotEmpty ? uname : 'User'),
+          email: email,
+          isOnline: true,
+        );
+      }
     }
   }
 
   bool get isLoading => _isLoading;
   bool get isInitialized => _isInitialized;
-  bool get isAuthenticated => _storage.hasSession;
+  bool get isAuthenticated => _storage.hasSession || _storage.getAccessToken() != null;
   UserProfileModel? get currentUser => _currentUser;
   String? get errorMessage => _errorMessage;
   String? get lastOtpCode => _lastOtpCode;
 
-  String get currentUserId => _currentUser?.userId.isNotEmpty == true
-      ? _currentUser!.userId
-      : (_storage.getUserId() ?? '');
+  String get currentUserId {
+    if (_currentUser?.userId != null && _currentUser!.userId.trim().isNotEmpty) {
+      return _currentUser!.userId.trim();
+    }
+    final stored = _storage.getUserId();
+    if (stored != null && stored.trim().isNotEmpty) {
+      return stored.trim();
+    }
+    final token = _storage.getAccessToken();
+    if (token != null && token.isNotEmpty) {
+      final payload = _decodeJwt(token);
+      final id = payload?['nameid']?.toString() ?? payload?['sub']?.toString();
+      if (id != null && id.trim().isNotEmpty) {
+        return id.trim();
+      }
+    }
+    return '';
+  }
 
-  String get currentUsername => _currentUser?.username.isNotEmpty == true
-      ? _currentUser!.username
-      : (_storage.getUsername() ?? '');
+  String get currentUsername {
+    if (_currentUser?.username != null && _currentUser!.username.trim().isNotEmpty) {
+      return _currentUser!.username.trim();
+    }
+    final stored = _storage.getUsername();
+    if (stored != null && stored.trim().isNotEmpty) {
+      return stored.trim();
+    }
+    final token = _storage.getAccessToken();
+    if (token != null && token.isNotEmpty) {
+      final payload = _decodeJwt(token);
+      final name = payload?['unique_name']?.toString() ?? payload?['name']?.toString();
+      if (name != null && name.trim().isNotEmpty) {
+        return name.trim();
+      }
+    }
+    return '';
+  }
 
   String get currentDisplayName => _currentUser?.displayName.isNotEmpty == true
       ? _currentUser!.displayName
@@ -49,15 +116,8 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      if (_storage.hasSession) {
-        _currentUser = UserProfileModel(
-          userId: _storage.getUserId() ?? '',
-          username: _storage.getUsername() ?? '',
-          displayName: _storage.getDisplayName() ?? _storage.getUsername() ?? '',
-          email: _storage.getEmail(),
-          isOnline: true,
-        );
-
+      _initFromStorage();
+      if (_storage.hasSession || _storage.getAccessToken() != null) {
         // Attempt silent profile sync / token refresh in background
         try {
           _currentUser = await _apiService.getMe();
@@ -427,4 +487,3 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 }
-

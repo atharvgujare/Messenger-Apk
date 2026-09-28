@@ -276,6 +276,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               },
               child: CircleAvatar(
                 backgroundImage: NetworkImage(presets[idx]),
+                onBackgroundImageError: (_, _) {},
               ),
             ),
           ),
@@ -328,6 +329,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     backgroundColor: isDark ? AppTheme.darkSearchBar : Colors.grey[200],
                     backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
                         ? NetworkImage(avatarUrl)
+                        : null,
+                    onBackgroundImageError: (avatarUrl != null && avatarUrl.isNotEmpty)
+                        ? (_, _) {}
                         : null,
                     child: (avatarUrl == null || avatarUrl.isEmpty)
                         ? Icon(

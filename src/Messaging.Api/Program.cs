@@ -132,7 +132,20 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseCors("AllowAll");
-app.UseStaticFiles();
+
+var wwwrootFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+if (!Directory.Exists(wwwrootFolder)) Directory.CreateDirectory(wwwrootFolder);
+var avatarsFolder = Path.Combine(wwwrootFolder, "avatars");
+if (!Directory.Exists(avatarsFolder)) Directory.CreateDirectory(avatarsFolder);
+var snapsFolder = Path.Combine(wwwrootFolder, "snaps");
+if (!Directory.Exists(snapsFolder)) Directory.CreateDirectory(snapsFolder);
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(wwwrootFolder),
+    RequestPath = "",
+    ServeUnknownFileTypes = true
+});
 
 // Auto-migrate or ensure database exists on startup (crucial for Docker / Render)
 using (var scope = app.Services.CreateScope())

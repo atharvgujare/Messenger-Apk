@@ -133,6 +133,9 @@ class _ViewSnapScreenState extends State<ViewSnapScreen> with SingleTickerProvid
                           backgroundImage: (snap.senderAvatarUrl != null && snap.senderAvatarUrl!.isNotEmpty)
                               ? NetworkImage(snap.senderAvatarUrl!)
                               : null,
+                          onBackgroundImageError: (snap.senderAvatarUrl != null && snap.senderAvatarUrl!.isNotEmpty)
+                              ? (_, _) {}
+                              : null,
                           child: (snap.senderAvatarUrl == null || snap.senderAvatarUrl!.isEmpty)
                               ? Text(
                                   snap.senderDisplayName.isNotEmpty ? snap.senderDisplayName[0].toUpperCase() : '?',

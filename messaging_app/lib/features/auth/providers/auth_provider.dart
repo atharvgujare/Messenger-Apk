@@ -11,6 +11,7 @@ class AuthProvider extends ChangeNotifier {
   bool _isInitialized = false;
   UserProfileModel? _currentUser;
   String? _errorMessage;
+  String? _lastOtpCode;
 
   AuthProvider(this._apiService, this._storage) {
     if (_storage.hasSession) {
@@ -29,6 +30,7 @@ class AuthProvider extends ChangeNotifier {
   bool get isAuthenticated => _storage.hasSession;
   UserProfileModel? get currentUser => _currentUser;
   String? get errorMessage => _errorMessage;
+  String? get lastOtpCode => _lastOtpCode;
 
   String get currentUserId => _currentUser?.userId.isNotEmpty == true
       ? _currentUser!.userId
@@ -159,10 +161,11 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> sendOtp(String email) async {
     _isLoading = true;
     _errorMessage = null;
+    _lastOtpCode = null;
     notifyListeners();
 
     try {
-      await _apiService.sendOtp(email);
+      _lastOtpCode = await _apiService.sendOtp(email);
       _isLoading = false;
       notifyListeners();
       return true;

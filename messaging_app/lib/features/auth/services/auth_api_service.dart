@@ -7,12 +7,16 @@ class AuthApiService {
 
   AuthApiService(this._client);
 
-  Future<void> sendOtp(String email) async {
-    await _client.post(
+  Future<String?> sendOtp(String email) async {
+    final response = await _client.post(
       ApiEndpoints.sendOtp,
       includeAuth: false,
       body: {'email': email},
     );
+    if (response is Map<String, dynamic> && response.containsKey('otpCode')) {
+      return response['otpCode']?.toString();
+    }
+    return null;
   }
 
   Future<bool> verifyOtp(String email, String otpCode) async {

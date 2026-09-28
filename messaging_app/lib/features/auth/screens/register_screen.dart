@@ -72,13 +72,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!mounted) return;
 
     if (success) {
+      if (auth.lastOtpCode != null) {
+        _otpController.text = auth.lastOtpCode!;
+      }
       _startResendTimer();
       setState(() {
         _currentStep = 1;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Verification code sent to $email'),
+          content: Text(auth.lastOtpCode != null
+              ? 'Verification Code: ${auth.lastOtpCode} (Auto-filled)'
+              : 'Verification code sent to $email'),
           backgroundColor: AppTheme.whatsappGreenLight,
           behavior: SnackBarBehavior.floating,
         ),
@@ -127,10 +132,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!mounted) return;
 
     if (success) {
+      if (auth.lastOtpCode != null) {
+        _otpController.text = auth.lastOtpCode!;
+      }
       _startResendTimer();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('New code sent to $email'),
+          content: Text(auth.lastOtpCode != null
+              ? 'New OTP: ${auth.lastOtpCode} (Auto-filled)'
+              : 'New code sent to $email'),
           backgroundColor: AppTheme.whatsappGreenLight,
           behavior: SnackBarBehavior.floating,
         ),
@@ -320,7 +330,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
               color: Colors.grey[600],
             ),
           ),
-          const SizedBox(height: 32),
+          if (auth.lastOtpCode != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.whatsappVibrantGreen.withAlpha(25),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.whatsappVibrantGreen.withAlpha(80)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_outline, color: AppTheme.whatsappGreenLight, size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Your code is ${auth.lastOtpCode} (auto-filled)',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.5,
+                        color: AppTheme.whatsappGreenLight,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 24),
           TextFormField(
             controller: _otpController,
             keyboardType: TextInputType.number,

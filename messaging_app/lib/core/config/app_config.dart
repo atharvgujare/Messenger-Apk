@@ -15,6 +15,9 @@ class AppConfig {
     if (kIsWeb && (Uri.base.host == 'localhost' || Uri.base.host == '127.0.0.1')) {
       return localBackendUrl;
     }
+    if (kDebugMode) {
+      return localBackendUrl;
+    }
     return renderProductionUrl;
   }
 

@@ -1,6 +1,8 @@
 using System.Text;
 using Messaging.Api.Hubs;
 using Messaging.Api.Middlewares;
+using Messaging.Application.Common.Interfaces;
+using Messaging.Domain.Entities;
 using Messaging.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -153,6 +155,48 @@ using (var scope = app.Services.CreateScope())
             {
                 context.Database.EnsureCreated();
             }
+        }
+
+        // Seed default accounts if database has no users
+        if (!context.Users.Any())
+        {
+            var hasher = services.GetRequiredService<IPasswordHasher>();
+            var atharv = new User
+            {
+                Id = Guid.NewGuid(),
+                Username = "atharv",
+                Email = "atharv@example.com",
+                PasswordHash = hasher.HashPassword("Password123!"),
+                IsActive = true,
+                IsEmailVerified = true,
+                CreatedAtUtc = DateTime.UtcNow,
+                Profile = new UserProfile
+                {
+                    DisplayName = "Atharv Gujare",
+                    Bio = "Building real-time Messenger 🚀",
+                    IsOnline = false
+                }
+            };
+
+            var rahul = new User
+            {
+                Id = Guid.NewGuid(),
+                Username = "rahul",
+                Email = "rahul@example.com",
+                PasswordHash = hasher.HashPassword("Password123!"),
+                IsActive = true,
+                IsEmailVerified = true,
+                CreatedAtUtc = DateTime.UtcNow,
+                Profile = new UserProfile
+                {
+                    DisplayName = "Rahul Sharma",
+                    Bio = "Hey there! I am using Messenger.",
+                    IsOnline = false
+                }
+            };
+
+            context.Users.AddRange(atharv, rahul);
+            context.SaveChanges();
         }
     }
     catch (Exception ex)

@@ -12,7 +12,20 @@
           "package_name": "com.messenger.messaging_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "537348766734-st5oq176h27vvh5o5a0oik5dblf0a4lh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.messenger.messaging_app",
+            "certificate_hash": "cbe09272fa7cbe24ecd00b17a10ec574d7bd1910"
+          }
+        },
+        {
+          "client_id": "537348766734-cq8tcgbeeigb44ccgt5sqdsc2vid7nvi.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCDPmtspCcj-2u6kqhjpaLL6llqX7kARpQ"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "537348766734-cq8tcgbeeigb44ccgt5sqdsc2vid7nvi.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

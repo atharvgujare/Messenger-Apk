@@ -241,6 +241,7 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       final GoogleSignIn googleSignIn = GoogleSignIn(
+        serverClientId: '537348766734-cq8tcgbeeigb44ccgt5sqdsc2vid7nvi.apps.googleusercontent.com',
         scopes: ['email', 'profile'],
       );
 

@@ -105,6 +105,27 @@ class AuthApiService {
     return AuthResponseModel.fromJson(response);
   }
 
+  Future<AuthResponseModel> googleLogin({
+    required String email,
+    String? displayName,
+    String? photoUrl,
+    String? googleId,
+    String? idToken,
+  }) async {
+    final body = <String, dynamic>{'email': email};
+    if (displayName != null) body['displayName'] = displayName;
+    if (photoUrl != null) body['photoUrl'] = photoUrl;
+    if (googleId != null) body['googleId'] = googleId;
+    if (idToken != null) body['idToken'] = idToken;
+
+    final response = await _client.post(
+      ApiEndpoints.googleLogin,
+      includeAuth: false,
+      body: body,
+    );
+    return AuthResponseModel.fromJson(response);
+  }
+
   Future<AuthResponseModel> refreshToken(String refreshToken) async {
     final response = await _client.post(
       ApiEndpoints.refresh,

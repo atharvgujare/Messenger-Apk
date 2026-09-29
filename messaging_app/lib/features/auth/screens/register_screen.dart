@@ -304,6 +304,65 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
           const SizedBox(height: 16),
 
+          // Continue with Google Button
+          ElevatedButton(
+            onPressed: auth.isLoading
+                ? null
+                : () async {
+                    final nav = Navigator.of(context);
+                    final messenger = ScaffoldMessenger.of(context);
+                    final success = await auth.signInWithGoogle();
+                    if (success) {
+                      nav.popUntil((route) => route.isFirst);
+                    } else if (auth.errorMessage != null) {
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(auth.errorMessage!),
+                          backgroundColor: Colors.red.shade700,
+                        ),
+                      );
+                    }
+                  },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black87,
+              elevation: 1,
+              side: BorderSide(color: Colors.grey.shade300),
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.network(
+                  'https://developers.google.com/identity/images/g-logo.png',
+                  height: 20,
+                  width: 20,
+                  errorBuilder: (ctx, err, stack) => Text(
+                    'G',
+                    style: TextStyle(
+                      color: Colors.blue.shade700,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Continue with Google',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
           // Register with Phone SMS Button
           OutlinedButton.icon(
             onPressed: () {
@@ -317,7 +376,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             icon: const Icon(Icons.phone_android_rounded),
             label: const Text('Register with Phone SMS'),
             style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: 13),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),

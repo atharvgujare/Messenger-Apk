@@ -533,6 +533,109 @@ public class AuthService : IAuthService
         return BuildAuthResponse(newUser, newProfile, newAccessToken, newAccessExpires, newRefreshToken);
     }
 
+    public async Task<AuthResponse> GoogleLoginOrRegisterAsync(GoogleAuthRequest request, string? ipAddress, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email))
+        {
+            throw new ValidationException("Email", "Email address is required.");
+        }
+
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+
+        // 1. Check if user already exists with this email
+        var existingUser = await _userRepository.GetByEmailAsync(normalizedEmail, ct);
+        if (existingUser != null)
+        {
+            var existingProfile = existingUser.Profile ?? new UserProfile { UserId = existingUser.Id, DisplayName = existingUser.Username };
+            
+            if (!string.IsNullOrWhiteSpace(request.PhotoUrl) && string.IsNullOrWhiteSpace(existingProfile.AvatarUrl))
+            {
+                existingProfile.AvatarUrl = request.PhotoUrl;
+            }
+            if (!existingUser.IsEmailVerified)
+            {
+                existingUser.IsEmailVerified = true;
+            }
+
+            var (accessToken, accessExpires) = _jwtTokenService.GenerateAccessToken(existingUser);
+            var refreshToken = _jwtTokenService.GenerateRefreshToken();
+
+            var session = new UserSession
+            {
+                Id = Guid.NewGuid(),
+                UserId = existingUser.Id,
+                RefreshToken = refreshToken,
+                DeviceInfo = "Google Session",
+                IpAddress = ipAddress,
+                CreatedAtUtc = DateTime.UtcNow,
+                ExpiresAtUtc = DateTime.UtcNow.AddDays(30)
+            };
+
+            await _userRepository.AddSessionAsync(session, ct);
+            await _userRepository.SaveChangesAsync(ct);
+
+            return BuildAuthResponse(existingUser, existingProfile, accessToken, accessExpires, refreshToken);
+        }
+
+        // 2. New user registration via Google
+        var emailPrefix = normalizedEmail.Split('@')[0];
+        var cleanBase = new string(emailPrefix.Where(c => char.IsLetterOrDigit(c) || c == '_').ToArray());
+        if (string.IsNullOrWhiteSpace(cleanBase) || cleanBase.Length < 3)
+        {
+            cleanBase = "user_" + Random.Shared.Next(1000, 9999);
+        }
+
+        var finalUsername = cleanBase;
+        var counter = 1;
+        while (await _userRepository.IsUsernameTakenAsync(finalUsername, ct))
+        {
+            finalUsername = $"{cleanBase}_{counter++}";
+        }
+
+        var newUser = new User
+        {
+            Id = Guid.NewGuid(),
+            Username = finalUsername,
+            Email = normalizedEmail,
+            IsEmailVerified = true,
+            PasswordHash = _passwordHasher.HashPassword(Guid.NewGuid().ToString("N")),
+            IsActive = true,
+            CreatedAtUtc = DateTime.UtcNow
+        };
+
+        var newProfile = new UserProfile
+        {
+            UserId = newUser.Id,
+            DisplayName = !string.IsNullOrWhiteSpace(request.DisplayName) ? request.DisplayName.Trim() : finalUsername,
+            AvatarUrl = request.PhotoUrl,
+            IsOnline = true,
+            LastSeenAtUtc = DateTime.UtcNow
+        };
+
+        newUser.Profile = newProfile;
+
+        await _userRepository.AddUserAsync(newUser, ct);
+
+        var (newAccessToken, newAccessExpires) = _jwtTokenService.GenerateAccessToken(newUser);
+        var newRefreshToken = _jwtTokenService.GenerateRefreshToken();
+
+        var newSession = new UserSession
+        {
+            Id = Guid.NewGuid(),
+            UserId = newUser.Id,
+            RefreshToken = newRefreshToken,
+            DeviceInfo = "Google Session",
+            IpAddress = ipAddress,
+            CreatedAtUtc = DateTime.UtcNow,
+            ExpiresAtUtc = DateTime.UtcNow.AddDays(30)
+        };
+
+        await _userRepository.AddSessionAsync(newSession, ct);
+        await _userRepository.SaveChangesAsync(ct);
+
+        return BuildAuthResponse(newUser, newProfile, newAccessToken, newAccessExpires, newRefreshToken);
+    }
+
     private static UserProfileDto MapToProfileDto(User user, UserProfile profile)
     {
         return new UserProfileDto

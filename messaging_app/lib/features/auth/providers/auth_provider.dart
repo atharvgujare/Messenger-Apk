@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import '../../../core/storage/local_storage.dart';
 import '../models/auth_models.dart';
 import '../services/auth_api_service.dart';
@@ -218,6 +220,70 @@ class AuthProvider extends ChangeNotifier {
         displayName: response.displayName,
         email: response.email,
         avatarUrl: response.profile.avatarUrl,
+      );
+
+      _currentUser = response.profile;
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> signInWithGoogle() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        scopes: ['email', 'profile'],
+      );
+
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      if (googleUser == null) {
+        // User cancelled the Google sign-in picker
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      String? idToken = googleAuth.idToken;
+
+      try {
+        if (googleAuth.idToken != null || googleAuth.accessToken != null) {
+          final credential = GoogleAuthProvider.credential(
+            accessToken: googleAuth.accessToken,
+            idToken: googleAuth.idToken,
+          );
+          final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+          idToken = await userCredential.user?.getIdToken() ?? idToken;
+        }
+      } catch (_) {
+        // Proceed with direct googleAuth token if Firebase Auth credential exchange has local network variance
+      }
+
+      final response = await _apiService.googleLogin(
+        email: googleUser.email,
+        displayName: googleUser.displayName,
+        photoUrl: googleUser.photoUrl,
+        googleId: googleUser.id,
+        idToken: idToken,
+      );
+
+      await _storage.saveAuthData(
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken,
+        userId: response.userId,
+        username: response.username,
+        displayName: response.displayName,
+        email: response.email,
+        avatarUrl: response.profile.avatarUrl ?? googleUser.photoUrl,
       );
 
       _currentUser = response.profile;

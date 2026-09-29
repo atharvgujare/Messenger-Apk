@@ -76,3 +76,18 @@ public class PhoneAuthRequest
     public string? Username { get; set; }
 }
 
+public class GoogleAuthRequest
+{
+    [Required]
+    [EmailAddress]
+    public string Email { get; set; } = string.Empty;
+
+    public string? DisplayName { get; set; }
+
+    public string? PhotoUrl { get; set; }
+
+    public string? GoogleId { get; set; }
+
+    public string? IdToken { get; set; }
+}
+

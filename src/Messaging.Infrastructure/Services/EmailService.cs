@@ -97,6 +97,21 @@ public class EmailService : IEmailService
             ?? Environment.GetEnvironmentVariable("BREVO_API_KEY") 
             ?? Environment.GetEnvironmentVariable("Brevo__ApiKey");
 
+        if (string.IsNullOrWhiteSpace(brevoApiKey))
+        {
+            foreach (System.Collections.DictionaryEntry de in Environment.GetEnvironmentVariables())
+            {
+                var k = de.Key?.ToString() ?? "";
+                if (k.Contains("BREVO", StringComparison.OrdinalIgnoreCase))
+                {
+                    brevoApiKey = de.Value?.ToString();
+                    _logger.LogInformation(">>> [BREVO DETECTED] Found key under variable name: '{KeyName}'", k);
+                    break;
+                }
+            }
+        }
+        brevoApiKey = brevoApiKey?.Trim();
+
         _logger.LogInformation(">>> [EMAIL PROVIDER CHECK] Brevo API Key configured: {Configured}", !string.IsNullOrWhiteSpace(brevoApiKey));
 
         if (!string.IsNullOrWhiteSpace(brevoApiKey))

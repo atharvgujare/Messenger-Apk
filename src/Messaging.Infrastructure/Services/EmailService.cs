@@ -92,7 +92,13 @@ public class EmailService : IEmailService
         _logger.LogInformation("=================================================");
 
         // 1. Try Brevo REST API over HTTPS (port 443) if configured
-        var brevoApiKey = _configuration["Brevo:ApiKey"] ?? Environment.GetEnvironmentVariable("BREVO_API_KEY");
+        var brevoApiKey = _configuration["Brevo:ApiKey"] 
+            ?? _configuration["BREVO_API_KEY"] 
+            ?? Environment.GetEnvironmentVariable("BREVO_API_KEY") 
+            ?? Environment.GetEnvironmentVariable("Brevo__ApiKey");
+
+        _logger.LogInformation(">>> [EMAIL PROVIDER CHECK] Brevo API Key configured: {Configured}", !string.IsNullOrWhiteSpace(brevoApiKey));
+
         if (!string.IsNullOrWhiteSpace(brevoApiKey))
         {
             try

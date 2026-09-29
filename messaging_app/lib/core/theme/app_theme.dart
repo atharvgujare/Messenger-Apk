@@ -1,47 +1,55 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  static const Color whatsappGreen = Color(0xFF00A884); // Teal Green Dark
-  static const Color whatsappGreenLight = Color(0xFF008069); // Teal Green Light
-  static const Color whatsappVibrantGreen = Color(0xFF25D366); // Vibrant Green Badge/FAB
-  static const Color whatsappBlueCheck = Color(0xFF53BDEB); // Cyan double check
-  static const Color primaryColor = whatsappGreen;
-  static const Color accentColor = whatsappVibrantGreen;
-  static const Color secondaryColor = whatsappBlueCheck;
-  static const Color errorColor = Color(0xFFEA0038); // Red
+  // Vibrant Luxury Color Tokens
+  static const Color emeraldPrimary = Color(0xFF10B981);
+  static const Color emeraldDark = Color(0xFF059669);
+  static const Color emeraldLight = Color(0xFF34D399);
+  static const Color violetAccent = Color(0xFF6366F1);
+  static const Color cyanCheck = Color(0xFF38BDF8);
+  static const Color errorColor = Color(0xFFEF4444);
 
+  // Backward compatibility aliases
+  static const Color whatsappGreen = emeraldPrimary;
+  static const Color whatsappGreenLight = emeraldDark;
+  static const Color whatsappVibrantGreen = emeraldLight;
+  static const Color whatsappDarkGreen = Color(0xFF064E3B);
+  static const Color whatsappBlueCheck = cyanCheck;
+  static const Color primaryColor = emeraldPrimary;
+  static const Color accentColor = emeraldLight;
+  static const Color secondaryColor = cyanCheck;
 
-  // Dark Palette (WhatsApp Dark Mode)
-  static const Color darkBackground = Color(0xFF0B141A); // Deep dark background
-  static const Color darkSurface = Color(0xFF111B21); // AppBar & list surface
-  static const Color darkCard = Color(0xFF111B21);
-  static const Color darkSearchBar = Color(0xFF202C33);
-  static const Color darkTextPrimary = Color(0xFFE9EDEF);
-  static const Color darkTextSecondary = Color(0xFF8696A0);
-  static const Color darkBubbleMine = Color(0xFF005C4B);
-  static const Color darkBubbleOther = Color(0xFF202C33);
-  static const Color darkBorder = Color(0xFF222D34);
+  // Obsidian Luxury Dark Mode
+  static const Color darkBackground = Color(0xFF080B11); // Deepest obsidian
+  static const Color darkSurface = Color(0xFF101522); // Header & nav surface
+  static const Color darkCard = Color(0xFF151C2C); // Card & list tiles
+  static const Color darkSearchBar = Color(0xFF1A2234);
+  static const Color darkTextPrimary = Color(0xFFF8FAFC);
+  static const Color darkTextSecondary = Color(0xFF94A3B8);
+  static const Color darkBubbleMine = Color(0xFF0A4434);
+  static const Color darkBubbleOther = Color(0xFF1A2234);
+  static const Color darkBorder = Color(0xFF1E293B);
 
-  // Light Palette (WhatsApp Light Mode)
-  static const Color lightBackground = Color(0xFFFFFFFF);
+  // Frosted Modern Light Mode
+  static const Color lightBackground = Color(0xFFF8FAFC);
   static const Color lightSurface = Color(0xFFFFFFFF);
   static const Color lightCard = Color(0xFFFFFFFF);
-  static const Color lightSearchBar = Color(0xFFF0F2F5);
-  static const Color lightTextPrimary = Color(0xFF111B21);
-  static const Color lightTextSecondary = Color(0xFF667781);
-  static const Color lightBubbleMine = Color(0xFFD9FDD3);
+  static const Color lightSearchBar = Color(0xFFEDF2F7);
+  static const Color lightTextPrimary = Color(0xFF0F172A);
+  static const Color lightTextSecondary = Color(0xFF64748B);
+  static const Color lightBubbleMine = Color(0xFFD1FAE5);
   static const Color lightBubbleOther = Color(0xFFFFFFFF);
-  static const Color lightBorder = Color(0xFFE9EDEF);
+  static const Color lightBorder = Color(0xFFE2E8F0);
 
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: whatsappGreenLight,
+        seedColor: emeraldPrimary,
         brightness: Brightness.light,
-        primary: whatsappGreenLight,
-        secondary: whatsappVibrantGreen,
+        primary: emeraldPrimary,
+        secondary: violetAccent,
         surface: lightSurface,
         error: errorColor,
       ),
@@ -53,46 +61,47 @@ class AppTheme {
         centerTitle: false,
         scrolledUnderElevation: 0,
         titleTextStyle: TextStyle(
-          color: whatsappGreenLight,
+          color: lightTextPrimary,
           fontSize: 22,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w700,
           letterSpacing: -0.5,
         ),
       ),
       cardTheme: CardThemeData(
         color: lightCard,
-        elevation: 0,
+        elevation: 0.5,
+        shadowColor: Colors.black.withAlpha(15),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           side: const BorderSide(color: lightBorder),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: lightSearchBar,
-        hintStyle: const TextStyle(color: lightTextSecondary, fontSize: 15),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        hintStyle: const TextStyle(color: lightTextSecondary, fontSize: 14),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: const BorderSide(color: whatsappGreenLight, width: 1.5),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: emeraldPrimary, width: 1.5),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: whatsappGreenLight,
+          backgroundColor: emeraldPrimary,
           foregroundColor: Colors.white,
-          minimumSize: const Size.fromHeight(50),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          elevation: 0,
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          minimumSize: const Size.fromHeight(52),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          elevation: 1,
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 0.2),
         ),
       ),
     );
@@ -103,10 +112,10 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: whatsappGreen,
+        seedColor: emeraldPrimary,
         brightness: Brightness.dark,
-        primary: whatsappGreen,
-        secondary: whatsappVibrantGreen,
+        primary: emeraldPrimary,
+        secondary: emeraldLight,
         surface: darkSurface,
         error: errorColor,
       ),
@@ -120,7 +129,7 @@ class AppTheme {
         titleTextStyle: TextStyle(
           color: darkTextPrimary,
           fontSize: 22,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w700,
           letterSpacing: -0.5,
         ),
       ),
@@ -128,36 +137,36 @@ class AppTheme {
         color: darkCard,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           side: const BorderSide(color: darkBorder),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: darkSearchBar,
-        hintStyle: const TextStyle(color: darkTextSecondary, fontSize: 15),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        hintStyle: const TextStyle(color: darkTextSecondary, fontSize: 14),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: const BorderSide(color: whatsappGreen, width: 1.5),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: emeraldPrimary, width: 1.5),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: whatsappGreen,
+          backgroundColor: emeraldPrimary,
           foregroundColor: Colors.white,
-          minimumSize: const Size.fromHeight(50),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          minimumSize: const Size.fromHeight(52),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           elevation: 0,
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 0.2),
         ),
       ),
     );

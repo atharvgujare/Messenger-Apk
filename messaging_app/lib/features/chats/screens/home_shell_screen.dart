@@ -297,7 +297,7 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
                 controller: _searchController,
                 onChanged: (val) => setState(() => _searchQuery = val.trim().toLowerCase()),
                 decoration: InputDecoration(
-                  hintText: 'Ask Meta AI or Search',
+                  hintText: 'Search chats or messages...',
                   hintStyle: TextStyle(
                     color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
                     fontSize: 15,
@@ -435,15 +435,22 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return InkWell(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(24),
       onTap: () => setState(() => _selectedFilter = label),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
         decoration: BoxDecoration(
           color: isSelected
-              ? (isDark ? const Color(0xFF1A382B) : const Color(0xFFE7FCE3))
-              : (isDark ? AppTheme.darkSearchBar : const Color(0xFFF0F2F5)),
-          borderRadius: BorderRadius.circular(20),
+              ? (isDark ? AppTheme.whatsappGreen.withAlpha(45) : const Color(0xFFD1FAE5))
+              : (isDark ? AppTheme.darkCard : const Color(0xFFF1F5F9)),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: isSelected
+                ? AppTheme.whatsappGreen.withAlpha(isDark ? 100 : 180)
+                : Colors.transparent,
+            width: 1,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -452,19 +459,19 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
               label,
               style: TextStyle(
                 color: isSelected
-                    ? (isDark ? AppTheme.whatsappGreen : AppTheme.whatsappGreenLight)
+                    ? (isDark ? AppTheme.whatsappGreenLight : AppTheme.whatsappGreen)
                     : (isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary),
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                fontSize: 13.5,
               ),
             ),
             if (count > 0) ...[
               const SizedBox(width: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1.5),
                 decoration: BoxDecoration(
-                  color: isSelected ? AppTheme.whatsappGreen : Colors.grey[400],
-                  borderRadius: BorderRadius.circular(10),
+                  color: isSelected ? AppTheme.whatsappGreen : (isDark ? Colors.white24 : Colors.grey[400]),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   '$count',

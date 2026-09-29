@@ -69,6 +69,7 @@ public class AuthService : IAuthService
             Email = sanitizedEmail,
             PasswordHash = passwordHash,
             CreatedAtUtc = DateTime.UtcNow,
+            IsEmailVerified = true,
             IsActive = true
         };
 
@@ -76,6 +77,7 @@ public class AuthService : IAuthService
         {
             UserId = user.Id,
             DisplayName = request.DisplayName.Trim(),
+            AvatarUrl = request.AvatarUrl,
             IsOnline = true,
             LastSeenAtUtc = DateTime.UtcNow
         };

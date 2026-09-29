@@ -622,16 +622,16 @@ class _ChatScreenState extends State<ChatScreen> {
                             ? (isDark ? AppTheme.darkBubbleMine : AppTheme.lightBubbleMine)
                             : (isDark ? AppTheme.darkBubbleOther : AppTheme.lightBubbleOther)),
                     borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(16),
-                      topRight: const Radius.circular(16),
-                      bottomLeft: Radius.circular(isMe ? 16 : 4),
-                      bottomRight: Radius.circular(isMe ? 4 : 16),
+                      topLeft: const Radius.circular(20),
+                      topRight: const Radius.circular(20),
+                      bottomLeft: Radius.circular(isMe ? 20 : 6),
+                      bottomRight: Radius.circular(isMe ? 6 : 20),
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withAlpha(12),
-                        blurRadius: 3,
-                        offset: const Offset(0, 1),
+                        color: Colors.black.withAlpha(isDark ? 20 : 10),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1.5),
                       ),
                     ],
                   ),

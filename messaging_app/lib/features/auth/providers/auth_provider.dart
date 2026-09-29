@@ -299,11 +299,51 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<Map<String, String?>?> pickGoogleAccount() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final googleSignIn = GoogleSignIn(
+        serverClientId: '537348766734-cq8tcgbeeigb44ccgt5sqdsc2vid7nvi.apps.googleusercontent.com',
+        scopes: ['email', 'profile'],
+      );
+
+      try {
+        await googleSignIn.signOut();
+      } catch (_) {}
+
+      final googleUser = await googleSignIn.signIn();
+      if (googleUser == null) {
+        _isLoading = false;
+        notifyListeners();
+        return null;
+      }
+
+      _isLoading = false;
+      notifyListeners();
+
+      return {
+        'email': googleUser.email,
+        'displayName': googleUser.displayName,
+        'photoUrl': googleUser.photoUrl,
+        'googleId': googleUser.id,
+      };
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
   Future<bool> register({
     required String username,
     required String email,
     required String password,
     required String displayName,
+    String? avatarUrl,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -315,6 +355,7 @@ class AuthProvider extends ChangeNotifier {
         email: email,
         password: password,
         displayName: displayName,
+        avatarUrl: avatarUrl,
       );
 
       await _storage.saveAuthData(
@@ -324,7 +365,7 @@ class AuthProvider extends ChangeNotifier {
         username: response.username,
         displayName: response.displayName,
         email: response.email,
-        avatarUrl: response.profile.avatarUrl,
+        avatarUrl: response.profile.avatarUrl ?? avatarUrl,
       );
 
       _currentUser = response.profile;
@@ -332,7 +373,7 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
       _isLoading = false;
       notifyListeners();
       return false;
@@ -580,9 +621,23 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    try {
+      final googleSignIn = GoogleSignIn(
+        serverClientId: '537348766734-cq8tcgbeeigb44ccgt5sqdsc2vid7nvi.apps.googleusercontent.com',
+      );
+      await googleSignIn.signOut();
+      await googleSignIn.disconnect();
+    } catch (_) {}
+
+    try {
+      await FirebaseAuth.instance.signOut();
+    } catch (_) {}
+
     final refreshToken = _storage.getRefreshToken();
     if (refreshToken != null) {
-      await _apiService.logout(refreshToken);
+      try {
+        await _apiService.logout(refreshToken);
+      } catch (_) {}
     }
     await _storage.clearAll();
     _currentUser = null;

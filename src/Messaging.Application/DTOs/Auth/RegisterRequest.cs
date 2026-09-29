@@ -21,4 +21,6 @@ public class RegisterRequest
     [Required(ErrorMessage = "Display name is required.")]
     [StringLength(100, MinimumLength = 1, ErrorMessage = "Display name must be between 1 and 100 characters.")]
     public string DisplayName { get; set; } = string.Empty;
+
+    public string? AvatarUrl { get; set; }
 }

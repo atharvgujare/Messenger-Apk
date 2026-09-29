@@ -54,6 +54,7 @@ class AuthApiService {
     required String email,
     required String password,
     required String displayName,
+    String? avatarUrl,
   }) async {
     final response = await _client.post(
       ApiEndpoints.register,
@@ -63,6 +64,7 @@ class AuthApiService {
         'email': email,
         'password': password,
         'displayName': displayName,
+        'avatarUrl': ?avatarUrl,
       },
     );
     return AuthResponseModel.fromJson(response);

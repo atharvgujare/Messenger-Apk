@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/signalr_service.dart';
@@ -18,6 +20,10 @@ class ChatProvider extends ChangeNotifier {
   final Map<String, List<MessageModel>> _conversationMessages = {};
   final Map<String, String?> _typingStatus = {};
   final Map<String, Timer?> _typingTimers = {};
+
+  // Starred messages
+  Set<String> _starredMessageIds = {};
+  List<MessageModel> _starredMessages = [];
 
   bool _isLoadingConversations = false;
   bool _isLoadingMessages = false;
@@ -46,6 +52,9 @@ class ChatProvider extends ChangeNotifier {
   String? get error => _error;
   MessageModel? get replyingToMessage => _replyingToMessage;
   MessageModel? get editingMessage => _editingMessage;
+  List<MessageModel> get starredMessages => _starredMessages;
+
+  bool isMessageStarred(String msgId) => _starredMessageIds.contains(msgId);
 
   List<MessageModel> getMessagesFor(String conversationId) =>
       _conversationMessages[conversationId] ?? [];
@@ -54,6 +63,37 @@ class ChatProvider extends ChangeNotifier {
 
   ChatProvider(this._apiClient, this._signalRService, this._authProvider) {
     _initSignalRSubscriptions();
+    loadStarredMessages();
+  }
+
+  Future<void> toggleStarMessage(MessageModel message) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_starredMessageIds.contains(message.id)) {
+      _starredMessageIds.remove(message.id);
+      _starredMessages.removeWhere((m) => m.id == message.id);
+    } else {
+      _starredMessageIds.add(message.id);
+      _starredMessages.insert(0, message);
+    }
+    await prefs.setStringList('starred_msg_ids', _starredMessageIds.toList());
+    final jsonList = _starredMessages.map((m) => jsonEncode(m.toJson())).toList();
+    await prefs.setStringList('starred_msg_payloads', jsonList);
+    notifyListeners();
+  }
+
+  Future<void> loadStarredMessages() async {
+    final prefs = await SharedPreferences.getInstance();
+    final ids = prefs.getStringList('starred_msg_ids') ?? [];
+    _starredMessageIds = ids.toSet();
+    final payloads = prefs.getStringList('starred_msg_payloads') ?? [];
+    _starredMessages = payloads.map((p) {
+      try {
+        return MessageModel.fromJson(jsonDecode(p) as Map<String, dynamic>);
+      } catch (_) {
+        return null;
+      }
+    }).whereType<MessageModel>().toList();
+    notifyListeners();
   }
 
   void _initSignalRSubscriptions() {
@@ -237,6 +277,7 @@ class ChatProvider extends ChangeNotifier {
   Future<void> sendMessage({
     required String conversationId,
     required String content,
+    MessageType type = MessageType.text,
     String? replyToMessageId,
   }) async {
     if (content.trim().isEmpty) return;
@@ -250,7 +291,7 @@ class ChatProvider extends ChangeNotifier {
       senderId: _authProvider.currentUserId,
       senderUsername: _authProvider.currentUsername,
       senderDisplayName: _authProvider.currentDisplayName,
-      type: MessageType.text,
+      type: type,
       content: content.trim(),
       createdAtUtc: DateTime.now(),
       status: MessageStatus.pending,
@@ -275,7 +316,7 @@ class ChatProvider extends ChangeNotifier {
     final payload = {
       'conversationId': conversationId,
       'content': content.trim(),
-      'type': 0, // text
+      'type': type.intValue,
       'replyToMessageId': replyToMessageId,
       'clientGeneratedId': clientGeneratedId,
     };

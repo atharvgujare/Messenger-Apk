@@ -2,9 +2,38 @@ enum MessageType {
   text,
   image,
   video,
-  audio,
-  document,
+  file,
+  voice,
   system,
+}
+
+extension MessageTypeExt on MessageType {
+  int get intValue {
+    switch (this) {
+      case MessageType.text:
+        return 1;
+      case MessageType.image:
+        return 2;
+      case MessageType.video:
+        return 3;
+      case MessageType.file:
+        return 4;
+      case MessageType.voice:
+        return 5;
+      case MessageType.system:
+        return 8;
+    }
+  }
+
+  static MessageType fromDynamic(dynamic val) {
+    if (val == 1 || val == 'Text' || val == 'text') return MessageType.text;
+    if (val == 2 || val == 'Image' || val == 'image') return MessageType.image;
+    if (val == 3 || val == 'Video' || val == 'video') return MessageType.video;
+    if (val == 4 || val == 'File' || val == 'file') return MessageType.file;
+    if (val == 5 || val == 'Voice' || val == 'voice' || val == 'Audio' || val == 'audio') return MessageType.voice;
+    if (val == 8 || val == 'System' || val == 'system') return MessageType.system;
+    return MessageType.text;
+  }
 }
 
 enum MessageStatus {
@@ -98,7 +127,7 @@ class MessageModel {
       senderId: json['senderId']?.toString() ?? '',
       senderUsername: json['senderUsername']?.toString() ?? '',
       senderDisplayName: json['senderDisplayName']?.toString() ?? '',
-      type: MessageType.values[(json['type'] as int?) ?? 0],
+      type: MessageTypeExt.fromDynamic(json['type']),
       content: json['content']?.toString() ?? '',
       createdAtUtc: DateTime.tryParse(json['createdAtUtc']?.toString() ?? '')?.toLocal() ?? DateTime.now(),
       updatedAtUtc: json['updatedAtUtc'] != null ? DateTime.tryParse(json['updatedAtUtc'].toString())?.toLocal() : null,

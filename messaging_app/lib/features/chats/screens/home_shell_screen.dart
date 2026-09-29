@@ -11,6 +11,7 @@ import '../providers/chat_provider.dart';
 import 'chat_screen.dart';
 import 'create_group_screen.dart';
 import 'settings_screen.dart';
+import 'starred_messages_screen.dart';
 import 'user_profile_screen.dart';
 import '../../../core/services/notification_service.dart';
 
@@ -62,6 +63,12 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const UserProfileScreen()),
+        );
+        break;
+      case 'starred':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const StarredMessagesScreen()),
         );
         break;
       case 'read_all':

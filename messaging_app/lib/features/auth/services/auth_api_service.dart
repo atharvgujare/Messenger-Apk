@@ -86,6 +86,25 @@ class AuthApiService {
     return AuthResponseModel.fromJson(response);
   }
 
+  Future<AuthResponseModel> phoneLogin({
+    required String phoneNumber,
+    String? firebaseIdToken,
+    String? displayName,
+    String? username,
+  }) async {
+    final body = <String, dynamic>{'phoneNumber': phoneNumber};
+    if (firebaseIdToken != null) body['firebaseIdToken'] = firebaseIdToken;
+    if (displayName != null) body['displayName'] = displayName;
+    if (username != null) body['username'] = username;
+
+    final response = await _client.post(
+      ApiEndpoints.phoneLogin,
+      includeAuth: false,
+      body: body,
+    );
+    return AuthResponseModel.fromJson(response);
+  }
+
   Future<AuthResponseModel> refreshToken(String refreshToken) async {
     final response = await _client.post(
       ApiEndpoints.refresh,

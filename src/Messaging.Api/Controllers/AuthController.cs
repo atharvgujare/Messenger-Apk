@@ -99,6 +99,16 @@ public class AuthController : ControllerBase
         return Ok(response);
     }
 
+    [HttpPost("phone-login")]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> PhoneLogin([FromBody] PhoneAuthRequest request, CancellationToken ct)
+    {
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var response = await _authService.PhoneLoginOrRegisterAsync(request, ipAddress, ct);
+        return Ok(response);
+    }
+
     [HttpPost("refresh")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

@@ -7,6 +7,7 @@ public interface IUserRepository
     Task<User?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<User?> GetByUsernameAsync(string username, CancellationToken ct = default);
     Task<User?> GetByEmailAsync(string email, CancellationToken ct = default);
+    Task<User?> GetByPhoneNumberAsync(string phoneNumber, CancellationToken ct = default);
     Task<User?> GetByLoginIdentifierAsync(string identifier, CancellationToken ct = default);
     Task<bool> IsUsernameTakenAsync(string username, CancellationToken ct = default);
     Task<bool> IsEmailTakenAsync(string email, CancellationToken ct = default);

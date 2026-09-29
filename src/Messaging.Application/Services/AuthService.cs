@@ -439,6 +439,100 @@ public class AuthService : IAuthService
         };
     }
 
+    public async Task<AuthResponse> PhoneLoginOrRegisterAsync(PhoneAuthRequest request, string? ipAddress, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.PhoneNumber))
+        {
+            throw new ValidationException("PhoneNumber", "Phone number is required.");
+        }
+
+        var cleanPhone = request.PhoneNumber.Trim().Replace(" ", "").Replace("-", "");
+
+        // Find existing user by phone
+        var existingUser = await _userRepository.GetByPhoneNumberAsync(cleanPhone, ct);
+        if (existingUser != null)
+        {
+            // Login existing user
+            var existingProfile = existingUser.Profile ?? new UserProfile { UserId = existingUser.Id, DisplayName = existingUser.Username };
+            
+            var (accessToken, accessExpires) = _jwtTokenService.GenerateAccessToken(existingUser);
+            var refreshToken = _jwtTokenService.GenerateRefreshToken();
+
+            var session = new UserSession
+            {
+                Id = Guid.NewGuid(),
+                UserId = existingUser.Id,
+                RefreshToken = refreshToken,
+                DeviceInfo = "Phone Session",
+                IpAddress = ipAddress,
+                CreatedAtUtc = DateTime.UtcNow,
+                ExpiresAtUtc = DateTime.UtcNow.AddDays(30)
+            };
+
+            await _userRepository.AddSessionAsync(session, ct);
+            await _userRepository.SaveChangesAsync(ct);
+
+            return BuildAuthResponse(existingUser, existingProfile, accessToken, accessExpires, refreshToken);
+        }
+
+        // New user registration via phone
+        var baseUsername = !string.IsNullOrWhiteSpace(request.Username)
+            ? request.Username.Trim().ToLowerInvariant()
+            : "user_" + cleanPhone.Substring(Math.Max(0, cleanPhone.Length - 4)) + "_" + Random.Shared.Next(100, 999);
+
+        var finalUsername = baseUsername;
+        var counter = 1;
+        while (await _userRepository.IsUsernameTakenAsync(finalUsername, ct))
+        {
+            finalUsername = $"{baseUsername}_{counter++}";
+        }
+
+        var syntheticEmail = $"{cleanPhone.Replace("+", "")}@phone.messenger.com";
+        var newUser = new User
+        {
+            Id = Guid.NewGuid(),
+            Username = finalUsername,
+            Email = syntheticEmail,
+            PhoneNumber = cleanPhone,
+            IsPhoneVerified = true,
+            IsEmailVerified = false,
+            PasswordHash = _passwordHasher.HashPassword(Guid.NewGuid().ToString("N")),
+            IsActive = true,
+            CreatedAtUtc = DateTime.UtcNow
+        };
+
+        var newProfile = new UserProfile
+        {
+            UserId = newUser.Id,
+            DisplayName = !string.IsNullOrWhiteSpace(request.DisplayName) ? request.DisplayName.Trim() : finalUsername,
+            IsOnline = true,
+            LastSeenAtUtc = DateTime.UtcNow
+        };
+
+        newUser.Profile = newProfile;
+
+        await _userRepository.AddUserAsync(newUser, ct);
+
+        var (newAccessToken, newAccessExpires) = _jwtTokenService.GenerateAccessToken(newUser);
+        var newRefreshToken = _jwtTokenService.GenerateRefreshToken();
+
+        var newSession = new UserSession
+        {
+            Id = Guid.NewGuid(),
+            UserId = newUser.Id,
+            RefreshToken = newRefreshToken,
+            DeviceInfo = "Phone Session",
+            IpAddress = ipAddress,
+            CreatedAtUtc = DateTime.UtcNow,
+            ExpiresAtUtc = DateTime.UtcNow.AddDays(30)
+        };
+
+        await _userRepository.AddSessionAsync(newSession, ct);
+        await _userRepository.SaveChangesAsync(ct);
+
+        return BuildAuthResponse(newUser, newProfile, newAccessToken, newAccessExpires, newRefreshToken);
+    }
+
     private static UserProfileDto MapToProfileDto(User user, UserProfile profile)
     {
         return new UserProfileDto

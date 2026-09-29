@@ -43,6 +43,12 @@ public class AppDbContext : DbContext
             entity.HasIndex(u => u.Email)
                 .IsUnique();
 
+            entity.Property(u => u.PhoneNumber)
+                .HasMaxLength(25);
+
+            entity.HasIndex(u => u.PhoneNumber)
+                .IsUnique();
+
             entity.Property(u => u.PasswordHash)
                 .IsRequired()
                 .HasMaxLength(255);

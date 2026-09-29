@@ -15,6 +15,7 @@ public interface IAuthService
     Task<AuthResponse> RegisterWithOtpAsync(RegisterWithOtpRequest request, string? ipAddress, CancellationToken ct = default);
     Task<string> ForgotPasswordAsync(string email, CancellationToken ct = default);
     Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct = default);
+    Task<AuthResponse> PhoneLoginOrRegisterAsync(PhoneAuthRequest request, string? ipAddress, CancellationToken ct = default);
 }
 
 

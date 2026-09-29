@@ -192,6 +192,46 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> phoneLogin({
+    required String phoneNumber,
+    String? firebaseIdToken,
+    String? displayName,
+    String? username,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await _apiService.phoneLogin(
+        phoneNumber: phoneNumber,
+        firebaseIdToken: firebaseIdToken,
+        displayName: displayName,
+        username: username,
+      );
+
+      await _storage.saveAuthData(
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken,
+        userId: response.userId,
+        username: response.username,
+        displayName: response.displayName,
+        email: response.email,
+        avatarUrl: response.profile.avatarUrl,
+      );
+
+      _currentUser = response.profile;
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> register({
     required String username,
     required String email,

@@ -12,6 +12,8 @@ appsettings.Local.json
 appsettings.Development.json
 *.db
 *.sqlite
+*.db-shm
+*.db-wal
 
 # Flutter / Dart
 .dart_tool/

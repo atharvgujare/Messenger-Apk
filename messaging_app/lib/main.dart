@@ -16,9 +16,18 @@ import 'features/chats/providers/chat_provider.dart';
 
 import 'core/theme/theme_provider.dart';
 import 'core/services/notification_service.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint('Firebase init error: $e');
+  }
   await NotificationService.instance.initialize();
 
   // Initialize Core Services

@@ -64,3 +64,15 @@ public class ResetPasswordRequest
     public string NewPassword { get; set; } = string.Empty;
 }
 
+public class PhoneAuthRequest
+{
+    [Required]
+    public string PhoneNumber { get; set; } = string.Empty;
+
+    public string? FirebaseIdToken { get; set; }
+
+    public string? DisplayName { get; set; }
+
+    public string? Username { get; set; }
+}
+

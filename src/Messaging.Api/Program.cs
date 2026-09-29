@@ -187,6 +187,18 @@ using (var scope = app.Services.CreateScope())
                     context.Database.ExecuteSqlRaw(@"ALTER TABLE ""UserProfiles"" ADD COLUMN ""IsPrivate"" INTEGER NOT NULL DEFAULT 0;");
                 }
                 catch { /* Column already exists */ }
+
+                try
+                {
+                    context.Database.ExecuteSqlRaw(@"ALTER TABLE ""Users"" ADD COLUMN ""PhoneNumber"" TEXT NULL;");
+                }
+                catch { /* Column already exists */ }
+
+                try
+                {
+                    context.Database.ExecuteSqlRaw(@"ALTER TABLE ""Users"" ADD COLUMN ""IsPhoneVerified"" INTEGER NOT NULL DEFAULT 0;");
+                }
+                catch { /* Column already exists */ }
             }
             catch { /* Migrations completed or already up to date */ }
         }
@@ -200,6 +212,13 @@ using (var scope = app.Services.CreateScope())
             {
                 context.Database.EnsureCreated();
             }
+
+            try
+            {
+                context.Database.ExecuteSqlRaw(@"ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""PhoneNumber"" VARCHAR(32) NULL;");
+                context.Database.ExecuteSqlRaw(@"ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""IsPhoneVerified"" BOOLEAN NOT NULL DEFAULT FALSE;");
+            }
+            catch { /* Columns already exist or database dialect variation */ }
         }
 
         // Seed default accounts if database has no users

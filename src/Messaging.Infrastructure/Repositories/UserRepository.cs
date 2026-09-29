@@ -37,12 +37,23 @@ public class UserRepository : IUserRepository
             .FirstOrDefaultAsync(u => u.Email.ToLower() == normalized, ct);
     }
 
+    public async Task<User?> GetByPhoneNumberAsync(string phoneNumber, CancellationToken ct = default)
+    {
+        var cleanPhone = phoneNumber.Trim().Replace(" ", "").Replace("-", "");
+        return await _context.Users
+            .Include(u => u.Profile)
+            .FirstOrDefaultAsync(u => u.PhoneNumber == cleanPhone || u.PhoneNumber == phoneNumber.Trim(), ct);
+    }
+
     public async Task<User?> GetByLoginIdentifierAsync(string identifier, CancellationToken ct = default)
     {
         var normalized = identifier.Trim().ToLowerInvariant();
+        var cleanPhone = identifier.Trim().Replace(" ", "").Replace("-", "");
         return await _context.Users
             .Include(u => u.Profile)
-            .FirstOrDefaultAsync(u => u.Username.ToLower() == normalized || u.Email.ToLower() == normalized, ct);
+            .FirstOrDefaultAsync(u => u.Username.ToLower() == normalized || 
+                                      u.Email.ToLower() == normalized || 
+                                      u.PhoneNumber == cleanPhone, ct);
     }
 
     public async Task<bool> IsUsernameTakenAsync(string username, CancellationToken ct = default)

@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.messenger.messaging_app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

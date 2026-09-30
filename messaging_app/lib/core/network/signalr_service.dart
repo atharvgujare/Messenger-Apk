@@ -5,6 +5,7 @@ import '../config/app_config.dart';
 import '../storage/local_storage.dart';
 import '../../features/chats/models/message_model.dart';
 import '../../features/chats/models/conversation_model.dart';
+import '../../features/calls/models/call_session_model.dart';
 
 class SignalRService {
   final LocalStorage _storage;
@@ -26,6 +27,12 @@ class SignalRService {
   final _messageDeletedController = StreamController<Map<String, dynamic>>.broadcast();
   final _reactionUpdatedController = StreamController<Map<String, dynamic>>.broadcast();
 
+  // Calling Streams
+  final _incomingCallController = StreamController<CallSessionModel>.broadcast();
+  final _callAcceptedController = StreamController<Map<String, dynamic>>.broadcast();
+  final _callRejectedController = StreamController<Map<String, dynamic>>.broadcast();
+  final _callEndedController = StreamController<String>.broadcast();
+
   Stream<MessageModel> get onMessageReceived => _messageReceivedController.stream;
   Stream<MessageModel> get onMessageSent => _messageSentController.stream;
   Stream<ConversationModel> get onConversationUpdated => _conversationUpdatedController.stream;
@@ -39,6 +46,11 @@ class SignalRService {
   Stream<Map<String, dynamic>> get onMessageEdited => _messageEditedController.stream;
   Stream<Map<String, dynamic>> get onMessageDeleted => _messageDeletedController.stream;
   Stream<Map<String, dynamic>> get onReactionUpdated => _reactionUpdatedController.stream;
+
+  Stream<CallSessionModel> get onIncomingCall => _incomingCallController.stream;
+  Stream<Map<String, dynamic>> get onCallAccepted => _callAcceptedController.stream;
+  Stream<Map<String, dynamic>> get onCallRejected => _callRejectedController.stream;
+  Stream<String> get onCallEnded => _callEndedController.stream;
 
   bool get isConnected => _hubConnection?.state == HubConnectionState.Connected;
 
@@ -93,6 +105,12 @@ class SignalRService {
       _hubConnection!.on('MessageEdited', _onMessageEdited);
       _hubConnection!.on('MessageDeleted', _onMessageDeleted);
       _hubConnection!.on('MessageReactionUpdated', _onMessageReactionUpdated);
+
+      // Calling callbacks
+      _hubConnection!.on('IncomingCall', _onIncomingCall);
+      _hubConnection!.on('CallAccepted', _onCallAccepted);
+      _hubConnection!.on('CallRejected', _onCallRejected);
+      _hubConnection!.on('CallEnded', _onCallEnded);
 
       await _hubConnection!.start();
       debugPrint('[SignalR] Connected successfully to ${AppConfig.chatHubUrl}');
@@ -293,6 +311,108 @@ class SignalRService {
     }
   }
 
+  // --- Calling Signaling ---
+
+  Future<CallSessionModel?> initiateCall(String receiverId, String conversationId, String callType) async {
+    if (isConnected) {
+      try {
+        final result = await _hubConnection!.invoke('InitiateCall', args: [receiverId, conversationId, callType]);
+        if (result != null && result is Map) {
+          return CallSessionModel.fromJson(Map<String, dynamic>.from(result));
+        }
+      } catch (e) {
+        debugPrint('[SignalR] Error calling InitiateCall: $e');
+        rethrow;
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> acceptCall(String callId) async {
+    if (isConnected) {
+      try {
+        final result = await _hubConnection!.invoke('AcceptCall', args: [callId]);
+        if (result != null && result is Map) {
+          return Map<String, dynamic>.from(result);
+        }
+      } catch (e) {
+        debugPrint('[SignalR] Error calling AcceptCall: $e');
+        rethrow;
+      }
+    }
+    return null;
+  }
+
+  Future<void> rejectCall(String callId, [String reason = 'Declined']) async {
+    if (isConnected) {
+      try {
+        await _hubConnection!.invoke('RejectCall', args: [callId, reason]);
+      } catch (e) {
+        debugPrint('[SignalR] Error calling RejectCall: $e');
+      }
+    }
+  }
+
+  Future<void> endCall(String callId) async {
+    if (isConnected) {
+      try {
+        await _hubConnection!.invoke('EndCall', args: [callId]);
+      } catch (e) {
+        debugPrint('[SignalR] Error calling EndCall: $e');
+      }
+    }
+  }
+
+  void _onIncomingCall(List<Object?>? args) {
+    if (args != null && args.isNotEmpty && args[0] is Map) {
+      try {
+        final data = Map<String, dynamic>.from(args[0] as Map);
+        final session = CallSessionModel.fromJson(data);
+        _incomingCallController.add(session);
+      } catch (e) {
+        debugPrint('[SignalR] Error parsing IncomingCall: $e');
+      }
+    }
+  }
+
+  void _onCallAccepted(List<Object?>? args) {
+    if (args != null && args.length >= 4) {
+      try {
+        _callAcceptedController.add({
+          'callId': args[0]?.toString() ?? '',
+          'channelName': args[1]?.toString() ?? '',
+          'agoraAppId': args[2]?.toString() ?? '',
+          'token': args[3]?.toString() ?? '',
+        });
+      } catch (e) {
+        debugPrint('[SignalR] Error parsing CallAccepted: $e');
+      }
+    }
+  }
+
+  void _onCallRejected(List<Object?>? args) {
+    if (args != null && args.length >= 2) {
+      try {
+        _callRejectedController.add({
+          'callId': args[0]?.toString() ?? '',
+          'reason': args[1]?.toString() ?? 'Declined',
+        });
+      } catch (e) {
+        debugPrint('[SignalR] Error parsing CallRejected: $e');
+      }
+    }
+  }
+
+  void _onCallEnded(List<Object?>? args) {
+    if (args != null && args.isNotEmpty) {
+      try {
+        _callEndedController.add(args[0]?.toString() ?? '');
+      } catch (e) {
+        debugPrint('[SignalR] Error parsing CallEnded: $e');
+      }
+    }
+  }
+
   Future<void> disconnect() async {
     if (_hubConnection != null) {
       await _hubConnection!.stop();
@@ -314,5 +434,10 @@ class SignalRService {
     _messageEditedController.close();
     _messageDeletedController.close();
     _reactionUpdatedController.close();
+
+    _incomingCallController.close();
+    _callAcceptedController.close();
+    _callRejectedController.close();
+    _callEndedController.close();
   }
 }

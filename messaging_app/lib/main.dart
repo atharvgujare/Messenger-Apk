@@ -13,6 +13,8 @@ import 'features/users/services/user_api_service.dart';
 
 import 'core/network/signalr_service.dart';
 import 'features/chats/providers/chat_provider.dart';
+import 'features/calls/providers/call_provider.dart';
+import 'features/calls/widgets/incoming_call_dialog.dart';
 
 import 'core/theme/theme_provider.dart';
 import 'core/services/notification_service.dart';
@@ -39,6 +41,7 @@ void main() async {
   final userSearchProvider = UserSearchProvider(userApiService);
   final signalRService = SignalRService(localStorage);
   final chatProvider = ChatProvider(apiClient, signalRService, authProvider);
+  final callProvider = CallProvider(signalRService);
   final themeProvider = ThemeProvider();
 
   // Attempt auto-login with stored tokens
@@ -56,20 +59,55 @@ void main() async {
         ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
         ChangeNotifierProvider<UserSearchProvider>.value(value: userSearchProvider),
         ChangeNotifierProvider<ChatProvider>.value(value: chatProvider),
+        ChangeNotifierProvider<CallProvider>.value(value: callProvider),
       ],
       child: const MessengerApp(),
     ),
   );
 }
 
-class MessengerApp extends StatelessWidget {
+class MessengerApp extends StatefulWidget {
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
   const MessengerApp({super.key});
+
+  @override
+  State<MessengerApp> createState() => _MessengerAppState();
+}
+
+class _MessengerAppState extends State<MessengerApp> {
+  CallProvider? _callProvider;
+  bool _showingIncomingDialog = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final newCallProvider = context.watch<CallProvider>();
+    if (_callProvider != newCallProvider) {
+      _callProvider = newCallProvider;
+    }
+
+    if (_callProvider?.status == CallStatus.incoming &&
+        _callProvider?.incomingCall != null &&
+        !_showingIncomingDialog) {
+      _showingIncomingDialog = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final navContext = MessengerApp.navigatorKey.currentContext;
+        if (navContext != null && _callProvider?.incomingCall != null) {
+          IncomingCallDialog.show(navContext, _callProvider!.incomingCall!);
+        }
+      });
+    } else if (_callProvider?.status != CallStatus.incoming) {
+      _showingIncomingDialog = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
 
     return MaterialApp(
+      navigatorKey: MessengerApp.navigatorKey,
       title: AppConfig.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,

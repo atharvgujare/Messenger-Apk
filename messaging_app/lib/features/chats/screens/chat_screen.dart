@@ -15,6 +15,8 @@ import '../providers/chat_provider.dart';
 import '../widgets/typing_indicator_bubble.dart';
 import '../widgets/voice_message_bubble.dart';
 import 'image_viewer_screen.dart';
+import '../../calls/providers/call_provider.dart';
+import '../../calls/screens/call_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final ConversationModel conversation;
@@ -198,6 +200,39 @@ class _ChatScreenState extends State<ChatScreen> {
       } finally {
         if (mounted) setState(() => _isUploading = false);
       }
+    }
+  }
+
+  Future<void> _startCall(BuildContext context, String callType, String? targetUserId) async {
+    if (targetUserId == null || targetUserId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot initiate call for this conversation'), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
+
+    final callProvider = context.read<CallProvider>();
+    final nav = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final started = await callProvider.startOutgoingCall(
+      receiverId: targetUserId,
+      conversationId: widget.conversation.conversationId,
+      callType: callType,
+    );
+
+    if (started && mounted) {
+      nav.push(
+        MaterialPageRoute(
+          builder: (_) => CallScreen(session: callProvider.currentCall!),
+        ),
+      );
+    } else if (mounted) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Failed to start call. Please check camera and microphone permissions.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -565,22 +600,16 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           actions: [
             IconButton(
-              icon: const Icon(Icons.videocam_outlined),
+              icon: const Icon(Icons.videocam_rounded),
+              color: const Color(0xFF10B981),
               tooltip: 'Video Call',
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Video call ringing...'), behavior: SnackBarBehavior.floating),
-                );
-              },
+              onPressed: () => _startCall(context, 'video', other?.userId),
             ),
             IconButton(
-              icon: const Icon(Icons.call_outlined),
+              icon: const Icon(Icons.call_rounded),
+              color: const Color(0xFF10B981),
               tooltip: 'Voice Call',
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Voice call ringing...'), behavior: SnackBarBehavior.floating),
-                );
-              },
+              onPressed: () => _startCall(context, 'voice', other?.userId),
             ),
           ],
         ),

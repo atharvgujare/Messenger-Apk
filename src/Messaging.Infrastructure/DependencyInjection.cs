@@ -54,6 +54,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IChatService, ChatService>();
+        services.AddScoped<IAgoraTokenService, Services.AgoraTokenService>();
         services.AddSingleton<IPresenceTracker, PresenceTracker>();
 
         return services;

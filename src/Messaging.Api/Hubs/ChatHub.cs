@@ -1,6 +1,8 @@
+using System.Collections.Concurrent;
 using System.Security.Claims;
 using Messaging.Application.Common.Exceptions;
 using Messaging.Application.Common.Interfaces;
+using Messaging.Application.DTOs.Calls;
 using Messaging.Application.DTOs.Chats;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -10,20 +12,25 @@ namespace Messaging.Api.Hubs;
 [Authorize]
 public class ChatHub : Hub<IChatHubClient>
 {
+    private static readonly ConcurrentDictionary<Guid, CallSessionDto> _activeCalls = new();
+
     private readonly IChatService _chatService;
     private readonly IPresenceTracker _presenceTracker;
     private readonly IUserRepository _userRepository;
+    private readonly IAgoraTokenService _agoraTokenService;
     private readonly ILogger<ChatHub> _logger;
 
     public ChatHub(
         IChatService chatService, 
         IPresenceTracker presenceTracker,
         IUserRepository userRepository,
+        IAgoraTokenService agoraTokenService,
         ILogger<ChatHub> logger)
     {
         _chatService = chatService;
         _presenceTracker = presenceTracker;
         _userRepository = userRepository;
+        _agoraTokenService = agoraTokenService;
         _logger = logger;
     }
 
@@ -285,6 +292,93 @@ public class ChatHub : Hub<IChatHubClient>
             throw new HubException(ex.Message);
         }
     }
+
+    #region Calling Signaling
+
+    public async Task<CallSessionDto> InitiateCall(Guid receiverId, Guid conversationId, string callType)
+    {
+        var callerId = GetUserId();
+        if (!callerId.HasValue)
+        {
+            throw new HubException("Unauthorized: Invalid user identity.");
+        }
+
+        var caller = await _userRepository.GetByIdAsync(callerId.Value);
+        var callerName = caller?.Username ?? "Unknown";
+        var callerAvatar = caller?.Profile?.AvatarUrl;
+
+        var callId = Guid.NewGuid();
+        var channelName = $"call_{conversationId:N}_{callId:N}";
+        var token = _agoraTokenService.GenerateRtcToken(channelName, callerId.Value.ToString());
+        var appId = _agoraTokenService.GetAppId();
+
+        var session = new CallSessionDto(
+            CallId: callId,
+            CallerId: callerId.Value,
+            CallerName: callerName,
+            CallerAvatar: callerAvatar,
+            ReceiverId: receiverId,
+            ConversationId: conversationId,
+            CallType: callType.ToLowerInvariant(),
+            ChannelName: channelName,
+            AgoraAppId: appId,
+            Token: token,
+            CreatedAtUtc: DateTime.UtcNow
+        );
+
+        _activeCalls[callId] = session;
+
+        _logger.LogInformation("Call {CallId} ({CallType}) initiated by {CallerName} to receiver {ReceiverId}", callId, callType, callerName, receiverId);
+
+        // Notify receiver
+        await Clients.Group(GetUserGroup(receiverId)).IncomingCall(session);
+
+        return session;
+    }
+
+    public async Task<CallAnswerDto> AcceptCall(Guid callId)
+    {
+        var receiverId = GetUserId();
+        if (!receiverId.HasValue)
+        {
+            throw new HubException("Unauthorized.");
+        }
+
+        if (!_activeCalls.TryGetValue(callId, out var session))
+        {
+            throw new HubException("Call not found or already ended.");
+        }
+
+        var receiverToken = _agoraTokenService.GenerateRtcToken(session.ChannelName, receiverId.Value.ToString());
+
+        _logger.LogInformation("Call {CallId} accepted by receiver {ReceiverId}", callId, receiverId.Value);
+
+        // Notify caller that call was accepted
+        await Clients.Group(GetUserGroup(session.CallerId)).CallAccepted(callId, session.ChannelName, session.AgoraAppId, receiverToken);
+
+        return new CallAnswerDto(callId, session.ChannelName, session.AgoraAppId, receiverToken);
+    }
+
+    public async Task RejectCall(Guid callId, string reason)
+    {
+        if (_activeCalls.TryRemove(callId, out var session))
+        {
+            _logger.LogInformation("Call {CallId} rejected: {Reason}", callId, reason);
+            await Clients.Group(GetUserGroup(session.CallerId)).CallRejected(callId, reason);
+        }
+    }
+
+    public async Task EndCall(Guid callId)
+    {
+        if (_activeCalls.TryRemove(callId, out var session))
+        {
+            _logger.LogInformation("Call {CallId} ended", callId);
+            await Clients.Group(GetUserGroup(session.CallerId)).CallEnded(callId);
+            await Clients.Group(GetUserGroup(session.ReceiverId)).CallEnded(callId);
+        }
+    }
+
+    #endregion
 
     private Guid? GetUserId()
     {

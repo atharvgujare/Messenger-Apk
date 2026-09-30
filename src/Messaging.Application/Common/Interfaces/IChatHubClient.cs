@@ -1,3 +1,4 @@
+using Messaging.Application.DTOs.Calls;
 using Messaging.Application.DTOs.Chats;
 
 namespace Messaging.Application.Common.Interfaces;
@@ -14,4 +15,10 @@ public interface IChatHubClient
     Task MessageEdited(Guid messageId, Guid conversationId, string newContent, DateTime editedAtUtc);
     Task MessageDeleted(Guid messageId, Guid conversationId, bool isDeletedForEveryone);
     Task MessageReactionUpdated(Guid messageId, Guid conversationId, List<MessageReactionDto> reactions);
+
+    // Calling Events
+    Task IncomingCall(CallSessionDto call);
+    Task CallAccepted(Guid callId, string channelName, string agoraAppId, string token);
+    Task CallRejected(Guid callId, string reason);
+    Task CallEnded(Guid callId);
 }
